@@ -32,7 +32,7 @@
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="interns-tab" data-bs-toggle="tab" data-bs-target="#interns" type="button" role="tab">
-                                    <i class="bi bi-people me-1"></i> Estagiários
+                                    <i class="bi bi-people me-1"></i> Bolsistas
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">

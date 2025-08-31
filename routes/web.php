@@ -92,6 +92,9 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         // Listagem
         Route::get('/', [UserController::class, 'index'])->name('index');
         
+        // Visualização individual
+        Route::get('/{user}', [UserController::class, 'show'])->name('show');
+        
         // Criação
         Route::get('/create', [UserController::class, 'create'])->name('create');
         Route::post('/', [UserController::class, 'store'])->name('store');
@@ -114,11 +117,12 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         Route::match(['put', 'patch'], '/update', [HelpController::class, 'update'])->name('update');
     });
     
-    // Logs de Atividade - CORRIGIDO
+    // Logs de Atividade 
     Route::prefix('logs')->name('logs.')->group(function () {
         Route::get('/', [AdminActivityLogController::class, 'index'])->name('index');
         Route::get('/filter', [AdminActivityLogController::class, 'filter'])->name('filter');
         Route::get('/{log}', [AdminActivityLogController::class, 'show'])->name('show');
+        
     });
 });
 
