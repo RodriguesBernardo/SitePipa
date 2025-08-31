@@ -47,6 +47,8 @@ class ActivityLog extends Model
             'login' => 'Login',
             'logout' => 'Logout',
             'password_reset' => 'Redefinição de Senha',
+            'force_delete' => 'Exclusão Forçada',
+            'replicate' => 'Duplicação',
             default => ucfirst($this->action),
         };
     }
@@ -64,6 +66,8 @@ class ActivityLog extends Model
             'login' => 'dark',
             'logout' => 'dark',
             'password_reset' => 'info',
+            'force_delete' => 'danger',
+            'replicate' => 'info',
             default => 'dark',
         };
     }
@@ -81,6 +85,8 @@ class ActivityLog extends Model
             'login' => 'sign-in-alt',
             'logout' => 'sign-out-alt',
             'password_reset' => 'key',
+            'force_delete' => 'trash-alt',
+            'replicate' => 'copy',
             default => 'history',
         };
     }
@@ -93,6 +99,9 @@ class ActivityLog extends Model
             'App\Models\News' => 'Notícia',
             'App\Models\User' => 'Usuário',
             'App\Models\HelpContent' => 'Conteúdo de Ajuda',
+            'App\Models\GameTag' => 'Tag de Jogo',
+            'App\Models\GameScreenshot' => 'Screenshot de Jogo',
+            'App\Models\GameDownload' => 'Download de Jogo',
         ];
         
         return $models[$this->model_type] ?? class_basename($this->model_type);
@@ -117,19 +126,29 @@ class ActivityLog extends Model
         foreach ($changes as $field => $change) {
             $fieldName = $fieldNames[$field] ?? $this->formatFieldName($field);
             
-            // Se for um array com old e new
+            // Se for um array com old e new (mudanças em updates)
             if (is_array($change) && isset($change['old']) && isset($change['new'])) {
                 $formatted[] = [
                     'field' => $fieldName,
                     'old' => $this->formatValueForDisplay($field, $change['old']),
-                    'new' => $this->formatValueForDisplay($field, $change['new'])
+                    'new' => $this->formatValueForDisplay($field, $change['new']),
+                    'type' => 'change'
                 ];
             } 
+            // Se for um array com apenas valores (criações)
+            elseif (is_array($change) && !isset($change['old']) && !isset($change['new'])) {
+                $formatted[] = [
+                    'field' => $fieldName,
+                    'value' => $this->formatValueForDisplay($field, $change),
+                    'type' => 'create'
+                ];
+            }
             // Outros casos
             else {
                 $formatted[] = [
                     'field' => $fieldName,
-                    'value' => $this->formatValueForDisplay($field, $change)
+                    'value' => $this->formatValueForDisplay($field, $change),
+                    'type' => 'single'
                 ];
             }
         }
@@ -153,6 +172,10 @@ class ActivityLog extends Model
             'Pdf' => 'PDF',
             'Html' => 'HTML',
             'Json' => 'JSON',
+            'Ssh' => 'SSH',
+            'Ftp' => 'FTP',
+            'Http' => 'HTTP',
+            'Https' => 'HTTPS',
         ];
         
         foreach ($translations as $search => $replace) {
@@ -176,39 +199,57 @@ class ActivityLog extends Model
             'type' => 'Tipo',
             'category_id' => 'Categoria',
             'image' => 'Imagem',
+            'cover_image' => 'Imagem de Capa',
+            'featured_image' => 'Imagem em Destaque',
+            'file_path' => 'Arquivo',
             'price' => 'Preço',
             'score' => 'Pontuação',
             'is_active' => 'Ativo',
             'is_featured' => 'Destaque',
             'is_admin' => 'Administrador',
             'is_blocked' => 'Bloqueado',
+            'published' => 'Publicado',
             'published_at' => 'Data de Publicação',
             'created_at' => 'Criado em',
             'updated_at' => 'Atualizado em',
             'deleted_at' => 'Excluído em',
             'email_verified_at' => 'E-mail verificado em',
             'remember_token' => 'Token de lembrete',
+            'verification_code' => 'Código de Verificação',
+            'verification_code_expires_at' => 'Expiração do Código',
+            'permissions' => 'Permissões',
+            'slug' => 'Slug',
+            'excerpt' => 'Resumo',
+            'short_description' => 'Descrição Curta',
+            'long_description' => 'Descrição Longa',
+            'how_to_play' => 'Como Jogar',
+            'educational_objectives' => 'Objetivos Educacionais',
+            'coordinators_content' => 'Conteúdo para Coordenadores',
+            'interns_content' => 'Conteúdo para Estagiários',
+            'machines_usage_content' => 'Conteúdo de Uso de Máquinas',
         ];
     }
     
     // Formatar valores específicos
-    protected function formatValue(string $field, $value)
+    protected function formatValueForDisplay(string $field, $value)
     {
         if (is_null($value)) {
-            return '<span class="text-muted fst-italic">Nulo</span>';
+            return 'Nulo';
         }
         
         if ($value === '') {
-            return '<span class="text-muted fst-italic">Vazio</span>';
+            return 'Vazio';
         }
         
         // Campos booleanos
         if (in_array($field, ['is_active', 'status', 'published', 'is_featured', 'is_admin', 'is_blocked'])) {
-            return $value ? '<span class="text-success">Sim</span>' : '<span class="text-danger">Não</span>';
+            return $value ? 'Sim' : 'Não';
         }
         
         // Campos de data
-        if (in_array($field, ['created_at', 'updated_at', 'deleted_at', 'published_at', 'email_verified_at'])) {
+        $dateFields = ['created_at', 'updated_at', 'deleted_at', 'published_at', 
+                      'email_verified_at', 'verification_code_expires_at'];
+        if (in_array($field, $dateFields)) {
             try {
                 return \Carbon\Carbon::parse($value)->format('d/m/Y H:i:s');
             } catch (\Exception $e) {
@@ -218,32 +259,31 @@ class ActivityLog extends Model
         
         // Campos de senha (não mostrar o valor real)
         if ($field === 'password') {
-            return '<span class="text-muted">••••••••</span>';
+            return '••••••••';
         }
         
         // Campos de token (não mostrar o valor completo)
         if ($field === 'remember_token') {
-            return '<span class="text-muted">' . substr($value, 0, 10) . '...</span>';
+            return substr($value, 0, 10) . '...';
+        }
+        
+        // Campos de permissões (array)
+        if ($field === 'permissions' && is_array($value)) {
+            return implode(', ', $value);
         }
         
         // Se for um array, converter para JSON formatado
         if (is_array($value)) {
-            $json = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            return '<pre class="mb-0" style="white-space: pre-wrap;">' . e($json) . '</pre>';
+            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
         
         // Se for um JSON string, tentar formatar
         if (is_string($value) && $this->isJson($value)) {
-            $json = json_encode(json_decode($value, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-            return '<pre class="mb-0" style="white-space: pre-wrap;">' . e($json) . '</pre>';
+            $decoded = json_decode($value, true);
+            return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
         
-        // Texto muito longo
-        if (is_string($value) && strlen($value) > 100) {
-            return '<div class="long-text">' . e($value) . '</div>';
-        }
-        
-        return e($value);
+        return $value;
     }
     
     // Verificar se é JSON
@@ -293,51 +333,55 @@ class ActivityLog extends Model
         return $query;
     }
 
-    protected function formatValueForDisplay(string $field, $value)
+    public function getEnhancedChangesAttribute(): array
     {
-        if (is_null($value)) {
-            return 'Nulo';
+        $changes = $this->changes;
+        
+        if (is_string($changes)) {
+            $changes = json_decode($changes, true) ?? [];
         }
         
-        if ($value === '') {
-            return 'Vazio';
+        if (empty($changes) || !is_array($changes)) {
+            return [];
         }
         
-        // Campos booleanos
-        if (in_array($field, ['is_active', 'status', 'published', 'is_featured', 'is_admin', 'is_blocked'])) {
-            return $value ? 'Sim' : 'Não';
-        }
+        $enhanced = [];
+        $fieldNames = $this->getFieldNames();
         
-        // Campos de data
-        if (in_array($field, ['created_at', 'updated_at', 'deleted_at', 'published_at', 'email_verified_at'])) {
-            try {
-                return \Carbon\Carbon::parse($value)->format('d/m/Y H:i:s');
-            } catch (\Exception $e) {
-                return $value;
+        foreach ($changes as $field => $change) {
+            $fieldName = $fieldNames[$field] ?? $this->formatFieldName($field);
+            
+            // Para mudanças com old/new (updates)
+            if (is_array($change) && isset($change['old']) && isset($change['new'])) {
+                $enhanced[] = [
+                    'field' => $fieldName,
+                    'old' => $this->formatValueForDisplay($field, $change['old']),
+                    'new' => $this->formatValueForDisplay($field, $change['new']),
+                    'type' => 'change',
+                    'raw_old' => $change['old'],
+                    'raw_new' => $change['new']
+                ];
+            } 
+            // Para criações (apenas valores)
+            elseif (is_array($change) && !isset($change['old']) && !isset($change['new'])) {
+                $enhanced[] = [
+                    'field' => $fieldName,
+                    'value' => $this->formatValueForDisplay($field, $change),
+                    'type' => 'create',
+                    'raw_value' => $change
+                ];
+            }
+            // Outros casos
+            else {
+                $enhanced[] = [
+                    'field' => $fieldName,
+                    'value' => $this->formatValueForDisplay($field, $change),
+                    'type' => 'single',
+                    'raw_value' => $change
+                ];
             }
         }
         
-        // Campos de senha (não mostrar o valor real)
-        if ($field === 'password') {
-            return '••••••••';
-        }
-        
-        // Campos de token (não mostrar o valor completo)
-        if ($field === 'remember_token') {
-            return substr($value, 0, 10) . '...';
-        }
-        
-        // Se for um array, converter para JSON formatado
-        if (is_array($value)) {
-            return json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        }
-        
-        // Se for um JSON string, tentar formatar
-        if (is_string($value) && $this->isJson($value)) {
-            $decoded = json_decode($value, true);
-            return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-        }
-        
-        return $value;
+        return $enhanced;
     }
 }

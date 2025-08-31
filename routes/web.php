@@ -91,10 +91,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
     Route::prefix('users')->name('users.')->group(function () {
         // Listagem
         Route::get('/', [UserController::class, 'index'])->name('index');
-        
-        // Visualização individual
-        Route::get('/{user}', [UserController::class, 'show'])->name('show');
-        
+                
         // Criação
         Route::get('/create', [UserController::class, 'create'])->name('create');
         Route::post('/', [UserController::class, 'store'])->name('store');

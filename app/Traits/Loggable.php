@@ -11,7 +11,13 @@ trait Loggable
     protected static function bootLoggable()
     {
         static::created(function ($model) {
-            self::logActivity($model, 'create', null, 'Registro criado');
+            // Capturar todos os atributos para criação
+            $attributes = $model->getAttributes();
+            
+            // Remover campos sensíveis
+            unset($attributes['password'], $attributes['remember_token']);
+            
+            self::logActivity($model, 'create', $attributes, 'Registro criado');
         });
 
         static::updated(function ($model) {
@@ -26,16 +32,13 @@ trait Loggable
             }
             
             // Adicionar valores antigos para comparação
-            $oldValues = [];
-            foreach ($changes as $field => $newValue) {
-                $oldValues[$field] = $model->getOriginal($field);
-            }
-            
-            // Formatar mudanças para incluir old e new
             $formattedChanges = [];
             foreach ($changes as $field => $newValue) {
+                $oldValue = $model->getOriginal($field);
+                
+                // Formatar mudanças para incluir old e new
                 $formattedChanges[$field] = [
-                    'old' => $oldValues[$field],
+                    'old' => $oldValue,
                     'new' => $newValue
                 ];
             }
@@ -50,6 +53,8 @@ trait Loggable
             // Se for soft delete, adicionar informação
             if (method_exists($model, 'trashed') && $model->trashed()) {
                 $description = 'Registro movido para lixeira (soft delete)';
+            } else {
+                $description = 'Registro excluído permanentemente';
             }
             
             self::logActivity($model, 'delete', null, $description);
@@ -59,6 +64,20 @@ trait Loggable
         if (method_exists(static::class, 'restored')) {
             static::restored(function ($model) {
                 self::logActivity($model, 'restore', null, 'Registro restaurado da lixeira');
+            });
+        }
+
+        // Registrar force delete
+        if (method_exists(static::class, 'forceDeleted')) {
+            static::forceDeleted(function ($model) {
+                self::logActivity($model, 'force_delete', null, 'Registro excluído permanentemente (force delete)');
+            });
+        }
+
+        // Registrar replicação (duplicação)
+        if (method_exists(static::class, 'replicated')) {
+            static::replicated(function ($model) {
+                self::logActivity($model, 'replicate', $model->getAttributes(), 'Registro duplicado');
             });
         }
     }
@@ -74,7 +93,26 @@ trait Loggable
             'user_id' => Auth::check() ? Auth::id() : null,
             'action' => $action,
             'model_type' => get_class($model),
-            'model_id' => $model->id,
+            'model_id' => $model->getKey(),
+            'changes' => $changes,
+            'description' => $description,
+            'ip_address' => Request::ip(),
+            'user_agent' => Request::userAgent(),
+        ]);
+    }
+
+    // Método para log manual de atividades específicas
+    public static function logManualActivity($action, $changes = null, $description = null)
+    {
+        if (app()->runningInConsole() && !app()->runningUnitTests()) {
+            return;
+        }
+
+        ActivityLog::create([
+            'user_id' => Auth::check() ? Auth::id() : null,
+            'action' => $action,
+            'model_type' => static::class,
+            'model_id' => null,
             'changes' => $changes,
             'description' => $description,
             'ip_address' => Request::ip(),

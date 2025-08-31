@@ -94,7 +94,7 @@
                             <th>ID do Modelo:</th>
                             <td>
                                 @if($log->model_id)
-                                    <span class="badge">#{{ $log->model_id }}</span>
+                                    <span class="badge bg-light text-dark">#{{ $log->model_id }}</span>
                                     @if($log->model_type === 'App\Models\User' && Route::has('admin.users.show'))
                                         <a href="{{ route('admin.users.show', $log->model_id) }}" class="btn btn-sm btn-outline-info ms-1" title="Ver este usuário">
                                             <i class="fas fa-external-link-alt"></i>
@@ -107,12 +107,24 @@
                         </tr>
                         <tr>
                             <th>Endereço IP:</th>
-                            <td>{{ $log->ip_address }}</td>
+                            <td>
+                                <code>{{ $log->ip_address }}</code>
+                                @if(filter_var($log->ip_address, FILTER_VALIDATE_IP))
+                                    <a href="https://www.ip-tracker.org/locator/ip-lookup.php?ip={{ $log->ip_address }}" 
+                                       target="_blank" class="btn btn-sm btn-outline-secondary ms-1" title="Rastrear IP">
+                                        <i class="fas fa-search"></i>
+                                    </a>
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <th>User Agent:</th>
                             <td>
-                                <small>{{ $log->user_agent }}</small>
+                                <small class="user-agent-text">{{ $log->user_agent }}</small>
+                                <button class="btn btn-sm btn-outline-secondary ms-1 copy-text" 
+                                        data-text="{{ $log->user_agent }}" title="Copiar User Agent">
+                                    <i class="fas fa-copy"></i>
+                                </button>
                             </td>
                         </tr>
                     </table>
@@ -122,56 +134,68 @@
             @if(!empty($log->formatted_changes))
             <div class="row mt-4">
                 <div class="col-12">
-                    <h5 class="border-bottom pb-2">Alterações Realizadas</h5>
+                    <h5 class="border-bottom pb-2 mb-3">Alterações Realizadas</h5>
+                    
+                    @if($log->action === 'create')
+                    <div class="alert alert-info mb-4">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Registro criado:</strong> Os seguintes campos foram preenchidos durante a criação.
+                    </div>
+                    @endif
+                    
                     <div class="table-responsive">
                         <table class="table table-bordered table-striped">
-                            <thead class="">
+                            <thead class="table-dark">
                                 <tr>
-                                    <th width="25%">Campo</th>
+                                    <th width="20%">Campo</th>
                                     <th width="35%">Valor Anterior</th>
                                     <th width="35%">Novo Valor</th>
-                                    <th width="5%">Tipo</th>
+                                    <th width="10%">Tipo</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($log->formatted_changes as $change)
                                 <tr>
                                     <td><strong>{{ $change['field'] }}</strong></td>
+                                    
+                                    {{-- Coluna Valor Anterior --}}
                                     <td>
                                         @if(isset($change['old']))
-                                            <div class="p-2 rounded">
-                                                @if(is_string($change['old']) && strlen($change['old']) > 100)
-                                                    <textarea class="form-control" rows="3" readonly>{{ $change['old'] }}</textarea>
-                                                @else
-                                                    {{ $change['old'] }}
-                                                @endif
+                                            <div class="change-value-container">
+                                                {!! $this->formatChangeValue($change['old']) !!}
                                             </div>
                                         @else
                                             <span class="text-muted fst-italic">N/A</span>
                                         @endif
                                     </td>
+                                    
+                                    {{-- Coluna Novo Valor --}}
                                     <td>
                                         @if(isset($change['new']))
-                                            <div class="p-2 rounded">
-                                                @if(is_string($change['new']) && strlen($change['new']) > 100)
-                                                    <textarea class="form-control" rows="3" readonly>{{ $change['new'] }}</textarea>
-                                                @else
-                                                    {{ $change['new'] }}
-                                                @endif
+                                            <div class="change-value-container">
+                                                {!! $this->formatChangeValue($change['new']) !!}
+                                            </div>
+                                        @elseif(isset($change['value']))
+                                            <div class="change-value-container">
+                                                {!! $this->formatChangeValue($change['value']) !!}
                                             </div>
                                         @else
                                             <span class="text-muted fst-italic">N/A</span>
                                         @endif
                                     </td>
+                                    
+                                    {{-- Coluna Tipo --}}
                                     <td class="text-center">
-                                        @if(isset($change['old']) && isset($change['new']))
+                                        @if(isset($change['type']) && $change['type'] === 'create')
+                                            <span class="badge bg-success" title="Campo criado">C</span>
+                                        @elseif(isset($change['old']) && isset($change['new']))
                                             @if($change['old'] === $change['new'])
-                                                <span class="badge bg-secondary">=</span>
+                                                <span class="badge bg-secondary" title="Sem alteração">=</span>
                                             @else
-                                                <span class="badge bg-warning">→</span>
+                                                <span class="badge bg-warning" title="Campo alterado">→</span>
                                             @endif
                                         @else
-                                            <span class="badge bg-info">+</span>
+                                            <span class="badge bg-info" title="Valor único">+</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -199,6 +223,15 @@
                     </div>
                 </div>
             </div>
+            @elseif($log->action === 'restore')
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-undo me-2"></i>
+                        <strong>Registro restaurado:</strong> O registro do tipo "{{ $log->model_name }}" foi restaurado.
+                    </div>
+                </div>
+            </div>
             @else
             <div class="row mt-4">
                 <div class="col-12">
@@ -210,18 +243,22 @@
             </div>
             @endif
 
-            <!-- Debug information (pode remover depois de testar) -->
-            @if(config('app.debug'))
+            <!-- Raw Data para debug -->
+            @if(config('app.debug') && $log->changes)
             <div class="row mt-4">
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header">
-                            <h6 class="mb-0">Informações de Debug</h6>
+                            <h6 class="mb-0">
+                                <i class="fas fa-bug me-2"></i>Dados Brutos (Debug)
+                                <button class="btn btn-sm btn-outline-secondary float-end copy-raw" 
+                                        data-raw="{{ json_encode($log->changes, JSON_PRETTY_PRINT) }}">
+                                    <i class="fas fa-copy"></i> Copiar
+                                </button>
+                            </h6>
                         </div>
                         <div class="card-body">
-                            <p><strong>Changes raw:</strong> {{ json_encode($log->changes) }}</p>
-                            <p><strong>Formatted changes:</strong> {{ json_encode($log->formatted_changes) }}</p>
-                            <p><strong>Action:</strong> {{ $log->action }}</p>
+                            <pre class="mb-0 raw-data">{{ json_encode($log->changes, JSON_PRETTY_PRINT) }}</pre>
                         </div>
                     </div>
                 </div>
@@ -232,12 +269,102 @@
 </div>
 
 <style>
-.long-text {
-    max-height: 100px;
+.change-value-container {
+    max-height: 200px;
     overflow-y: auto;
+    padding: 8px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
     font-family: monospace;
     font-size: 0.9em;
     white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.user-agent-text {
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.raw-data {
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 0.8em;
+}
+
+.long-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.copy-text:hover, .copy-raw:hover {
+    cursor: pointer;
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Função para copiar texto
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            // Mostrar feedback visual (opcional)
+            console.log('Texto copiado: ', text);
+        }).catch(err => {
+            console.error('Erro ao copiar texto: ', err);
+        });
+    }
+    
+    // Adicionar event listeners para botões de copiar
+    document.querySelectorAll('.copy-text').forEach(button => {
+        button.addEventListener('click', function() {
+            const text = this.getAttribute('data-text');
+            copyToClipboard(text);
+        });
+    });
+    
+    document.querySelectorAll('.copy-raw').forEach(button => {
+        button.addEventListener('click', function() {
+            const rawData = this.getAttribute('data-raw');
+            copyToClipboard(rawData);
+        });
+    });
+});
+</script>
 @endsection
+
+<?php
+// Helper function para formatar valores na view
+if (!function_exists('formatChangeValue')) {
+    function formatChangeValue($value) {
+        if (is_null($value)) {
+            return '<span class="text-muted fst-italic">Nulo</span>';
+        }
+        
+        if ($value === '') {
+            return '<span class="text-muted fst-italic">Vazio</span>';
+        }
+        
+        // Se for um array ou objeto JSON, formatar bonito
+        if (is_array($value) || (is_string($value) && is_json($value))) {
+            $json = is_string($value) ? json_decode($value, true) : $value;
+            $formatted = json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            return '<pre class="mb-0 long-text">' . e($formatted) . '</pre>';
+        }
+        
+        // Se for muito longo, usar textarea
+        if (is_string($value) && strlen($value) > 150) {
+            return '<textarea class="form-control" rows="4" readonly>' . e($value) . '</textarea>';
+        }
+        
+        return e($value);
+    }
+}
+
+if (!function_exists('is_json')) {
+    function is_json($string) {
+        if (!is_string($string)) return false;
+        json_decode($string);
+        return json_last_error() === JSON_ERROR_NONE;
+    }
+}
+?>

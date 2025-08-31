@@ -165,4 +165,6 @@ class UserController extends Controller
         User::withTrashed()->findOrFail($id)->restore();
         return back()->with('success', 'Usuário restaurado com sucesso!');
     }
+
+    
 }
