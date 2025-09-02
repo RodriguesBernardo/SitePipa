@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminActivityLogController; 
+use App\Http\Controllers\CalendarController; // Adicione esta linha
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\EmailVerificationController;
 
@@ -119,7 +120,16 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         Route::get('/', [AdminActivityLogController::class, 'index'])->name('index');
         Route::get('/filter', [AdminActivityLogController::class, 'filter'])->name('filter');
         Route::get('/{log}', [AdminActivityLogController::class, 'show'])->name('show');
-        
+    });
+    
+    // Rotas do Calendário - ADICIONE ESTE BLOCO
+    Route::prefix('calendar')->name('calendar.')->group(function () {
+        Route::get('/', [CalendarController::class, 'index'])->name('index');
+        Route::get('/events', [CalendarController::class, 'getEvents'])->name('events');
+        Route::post('/events', [CalendarController::class, 'store'])->name('events.store');
+        Route::put('/events/{event}', [CalendarController::class, 'update'])->name('events.update');
+        Route::delete('/events/{event}', [CalendarController::class, 'destroy'])->name('events.destroy');
+        Route::get('/events/{event}', [CalendarController::class, 'show'])->name('events.show');
     });
 });
 

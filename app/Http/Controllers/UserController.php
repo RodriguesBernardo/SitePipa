@@ -14,6 +14,8 @@ class UserController extends Controller
         'edit_news' => 'Editar Notícias',
         'create_news' => 'Criar Notícias',
         'edit_help' => 'Editar Ajuda',
+        'view_calendar' => 'Visualizar Calendário', // Nova permissão
+        'create_calendar_events' => 'Criar Eventos no Calendário', // Nova permissão
     ];
 
     public function __construct()

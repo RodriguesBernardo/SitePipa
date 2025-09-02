@@ -593,6 +593,14 @@
                         </a>
                     </li>
                     @endif
+                    @if(auth()->user()->is_admin || auth()->user()->hasPermission('view_calendar'))
+                    <li class="nav-item">
+                        <a href="{{ route('admin.calendar.index') }}" class="nav-link {{ Request::is('admin/calendar*') ? 'active' : '' }}">
+                            <i class="fas fa-calendar"></i>
+                            <span class="nav-link-text">Calendário</span>
+                        </a>
+                    </li>
+                    @endif
                 @endif
             @endauth
         </ul>

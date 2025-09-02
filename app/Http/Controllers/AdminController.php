@@ -7,8 +7,10 @@ use App\Models\Game;
 use App\Models\News;
 use App\Models\User;
 use App\Models\HelpContent;
+use App\Models\CalendarEvent; // Adicione esta linha
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class AdminController extends Controller
 {
@@ -31,29 +33,38 @@ class AdminController extends Controller
         $recentNewsCount = 0;
         $adminUsersCount = 0;
         $blockedUsersCount = 0;
-        $recentGames = collect();
-        $recentNews = collect();
-        $recentUsers = collect();
+        $upcomingEvents = collect(); // Alterado para eventos futuros
         
         // Verificar permissões e carregar dados conforme necessário
         if ($user->is_admin || $user->hasPermission('edit_games') || $user->hasPermission('create_games')) {
             $gamesCount = Game::withTrashed()->count();
             $activeGamesCount = Game::whereNull('deleted_at')->count();
             $deletedGamesCount = Game::onlyTrashed()->count();
-            $recentGames = Game::withTrashed()->orderBy('updated_at', 'desc')->take(5)->get();
         }
         
         if ($user->is_admin || $user->hasPermission('edit_news') || $user->hasPermission('create_news')) {
             $newsCount = News::count();
             $recentNewsCount = News::where('created_at', '>=', now()->subWeek())->count();
-            $recentNews = News::orderBy('updated_at', 'desc')->take(5)->get();
         }
         
         if ($user->is_admin) {
             $usersCount = User::count();
             $adminUsersCount = User::where('is_admin', true)->count();
             $blockedUsersCount = User::where('is_blocked', true)->count();
-            $recentUsers = User::orderBy('updated_at', 'desc')->take(5)->get();
+        }
+        
+        // Carregar próximos eventos (próximos 7 dias)
+        if ($user->is_admin || $user->hasPermission('view_calendar')) {
+            $upcomingEvents = CalendarEvent::where(function($query) use ($user) {
+                $query->where('visibility', 'public')
+                    ->orWhere('user_id', $user->id)
+                    ->orWhereJsonContains('participants', (string) $user->id);
+            })
+            ->where('start_date', '>=', now())
+            ->where('start_date', '<=', now()->addDays(7))
+            ->orderBy('start_date', 'asc')
+            ->take(5)
+            ->get();
         }
         
         return view('admin.dashboard', compact(
@@ -65,38 +76,71 @@ class AdminController extends Controller
             'recentNewsCount',
             'adminUsersCount',
             'blockedUsersCount',
-            'recentGames',
-            'recentNews',
-            'recentUsers',
+            'upcomingEvents', // Alterado para eventos futuros
             'user'
         ));
     }
 
     public function manageGames()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('edit_games') && !$user->hasPermission('create_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         $games = Game::withTrashed()->latest()->paginate(10);
         return view('admin.games.index', compact('games'));
     }
 
     public function manageNews()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('edit_news') && !$user->hasPermission('create_news')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         $news = News::latest()->paginate(10);
         return view('admin.news.index', compact('news'));
     }
 
     public function manageUsers()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem gerenciar usuários
+        if (!$user->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem gerenciar usuários.');
+        }
+        
         $users = User::latest()->paginate(10);
         return view('admin.users.index', compact('users'));
     }
 
     public function createUser()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem criar usuários
+        if (!$user->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem criar usuários.');
+        }
+        
         return view('admin.users.create');
     }
 
     public function storeUser(Request $request)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem criar usuários
+        if (!$user->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem criar usuários.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
@@ -111,18 +155,31 @@ class AdminController extends Controller
             'is_admin' => $request->is_admin ?? false,
         ]);
 
-        // Alterado para admin.users.index
         return redirect()->route('admin.users.index')
             ->with('success', 'Usuário criado com sucesso!');
     }
 
     public function editUser(User $user)
     {
+        $currentUser = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem editar usuários
+        if (!$currentUser->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem editar usuários.');
+        }
+        
         return view('admin.users.edit', compact('user'));
     }
 
     public function updateUser(Request $request, User $user)
     {
+        $currentUser = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem editar usuários
+        if (!$currentUser->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem editar usuários.');
+        }
+        
         $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
@@ -144,13 +201,19 @@ class AdminController extends Controller
 
         $user->update($data);
 
-        // Alterado para admin.users.index
         return redirect()->route('admin.users.index')
             ->with('success', 'Usuário atualizado com sucesso!');
     }
 
     public function toggleAdmin(User $user)
     {
+        $currentUser = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem alterar status de admin
+        if (!$currentUser->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem alterar este status.');
+        }
+        
         \Log::info('Toggle Admin - Before', ['user_id' => $user->id, 'current_status' => $user->is_admin]);
         
         $newStatus = !$user->is_admin;
@@ -163,6 +226,13 @@ class AdminController extends Controller
 
     public function toggleBlock(User $user)
     {
+        $currentUser = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem bloquear/desbloquear usuários
+        if (!$currentUser->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem alterar este status.');
+        }
+        
         \Log::info('Toggle Block - Before', ['user_id' => $user->id, 'current_status' => $user->is_blocked]);
         
         $newStatus = !$user->is_blocked;
@@ -175,7 +245,14 @@ class AdminController extends Controller
 
     public function destroyUser(User $user)
     {
-        if ($user->id === auth()->id()) {
+        $currentUser = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem excluir usuários
+        if (!$currentUser->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem excluir usuários.');
+        }
+        
+        if ($user->id === $currentUser->id) {
             return back()->with('error', 'Você não pode excluir seu próprio usuário!');
         }
 
@@ -186,12 +263,26 @@ class AdminController extends Controller
 
     public function editHelpContent()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem editar conteúdo de ajuda
+        if (!$user->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem editar conteúdo de ajuda.');
+        }
+        
         $content = HelpContent::firstOrNew();
         return view('admin.help.edit', compact('content'));
     }
 
     public function updateHelpContent(Request $request)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões - apenas administradores podem atualizar conteúdo de ajuda
+        if (!$user->is_admin) {
+            abort(403, 'Acesso não autorizado. Apenas administradores podem atualizar conteúdo de ajuda.');
+        }
+        
         $validated = $request->validate([
             'coordinators_content' => 'required',
             'interns_content' => 'required',
@@ -208,31 +299,73 @@ class AdminController extends Controller
 
     public function createGame()
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('create_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->create();
     }
 
     public function storeGame(Request $request)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('create_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->store($request);
     }
 
     public function editGame(Game $game)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('edit_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->edit($game);
     }
 
     public function updateGame(Request $request, Game $game)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('edit_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->update($request, $game);
     }
 
     public function destroyGame(Game $game)
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('delete_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->destroy($game);
     }
 
-/*     public function restoreGame($id)   DESABILITADO 
+    /* public function restoreGame($id)   DESABILITADO 
     {
+        $user = auth()->user();
+        
+        // Verificar permissões
+        if (!$user->is_admin && !$user->hasPermission('restore_games')) {
+            abort(403, 'Acesso não autorizado.');
+        }
+        
         return app(GameController::class)->restore($id);
     } */
 }

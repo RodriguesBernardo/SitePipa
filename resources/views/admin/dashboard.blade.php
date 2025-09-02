@@ -3,14 +3,11 @@
 @section('title', 'Painel Administrativo')
 
 @section('content')
-	
-
 <div class="container-fluid py-4 admin-dashboard">
     <!-- Header Section -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
-            <h1 class="h3 mb-1 fw-bold">Painel Administrativo</h1>
-            <p class="text-muted mb-0">Bem-vindo, {{ auth()->user()->name }}! Gerencie todo o conteúdo do sistema.</p>
+            <p class="text-muted mb-0">Bem-vindo, {{ auth()->user()->name }}! Gerencie o conteúdo do sistema.</p>
         </div>
         
         @if($user->is_admin || $user->permissions)
@@ -35,6 +32,10 @@
                     @if($user->is_admin || $user->hasPermission('edit_help'))
                     <li><a class="dropdown-item" href="{{ route('admin.help.edit') }}"><i class="bi bi-pencil me-2"></i>Editar Ajuda</a></li>
                     @endif
+                    
+                    @if($user->is_admin || $user->hasPermission('create_calendar_events'))
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#eventModal"><i class="bi bi-calendar-plus me-2"></i>Novo Evento</a></li>
+                    @endif
                 </ul>
             </div>
         </div>
@@ -44,7 +45,7 @@
     <!-- Stats Cards -->
     <div class="row mb-4 g-4">
         @if($user->is_admin || $user->hasPermission('edit_games') || $user->hasPermission('create_games'))
-        <div class="col-xl-4 col-md-6">
+        <div class="col-xl-3 col-md-6">
             <div class="card stat-card h-100 border-0 shadow-sm card-hover">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start mb-3">
@@ -72,7 +73,7 @@
         @endif
         
         @if($user->is_admin || $user->hasPermission('edit_news') || $user->hasPermission('create_news'))
-        <div class="col-xl-4 col-md-6">
+        <div class="col-xl-3 col-md-6">
             <div class="card stat-card h-100 border-0 shadow-sm card-hover">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start mb-3">
@@ -100,7 +101,7 @@
         @endif
         
         @if($user->is_admin)
-        <div class="col-xl-4 col-md-6">
+        <div class="col-xl-3 col-md-6">
             <div class="card stat-card h-100 border-0 shadow-sm card-hover">
                 <div class="card-body p-4">
                     <div class="d-flex justify-content-between align-items-start mb-3">
@@ -120,7 +121,27 @@
                         </a>
                         <div class="text-end">
                             <span class="badge bg-success bg-opacity-10 text-success">{{ $adminUsersCount }} administradores</span>
-                            <span class="badge bg-opacity-10 text-warning ms-1">{{ $blockedUsersCount }} bloqueados</span>
+                            <span class="badge bg-warning bg-opacity-10-warning ms-1">{{ $blockedUsersCount }} bloqueados</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @endif
+        
+        @if($user->is_admin || $user->hasPermission('view_calendar'))
+        <div class="col-xl-3 col-md-6">
+            <div class="card stat-card h-100 border-0 shadow-sm card-hover">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="d-flex align-items-center">
+                            <div class="bg-purple bg-opacity-10 p-3 rounded-3 me-3">
+                                <i class="bi bi-calendar-event fs-4 text-purple"></i>
+                            </div>
+                            <div>
+                                <h6 class="card-title mb-1 text-muted">Próximos Eventos</h6>
+                                <h2 class="fw-bold mb-0">{{ $upcomingEvents->count() }}</h2>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -133,110 +154,94 @@
     <div class="row g-4">
         <!-- Left Column -->
         <div class="col-lg-8">
-            <!-- Recent Activity -->
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-header py-3 border-bottom">
+            <!-- Próximos Eventos Section -->
+            @if(($user->is_admin || $user->hasPermission('view_calendar')) && $upcomingEvents->count() > 0)
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header py-3 border-bottom d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold">
-                        <i class="bi bi-clock-history me-2 text-primary"></i>Atividade Recente
+                        <i class="bi bi-calendar-event me-2 text-purple"></i>Próximos Eventos
                     </h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="list-group list-group-flush">
-                        @php
-                            // Combinar todas as atividades em uma única coleção
-                            $allActivities = collect();
-                            
-                            // Adicionar jogos se tiver permissão
-                            if($user->is_admin || $user->hasPermission('edit_games') || $user->hasPermission('create_games')) {
-                                foreach($recentGames as $game) {
-                                    $allActivities->push([
-                                        'type' => 'game',
-                                        'item' => $game,
-                                        'updated_at' => $game->updated_at
-                                    ]);
-                                }
-                            }
-                            
-                            // Adicionar notícias se tiver permissão
-                            if($user->is_admin || $user->hasPermission('edit_news') || $user->hasPermission('create_news')) {
-                                foreach($recentNews as $news) {
-                                    $allActivities->push([
-                                        'type' => 'news',
-                                        'item' => $news,
-                                        'updated_at' => $news->updated_at
-                                    ]);
-                                }
-                            }
-                            
-                            // Adicionar usuários se for admin
-                            if($user->is_admin) {
-                                foreach($recentUsers as $userItem) {
-                                    $allActivities->push([
-                                        'type' => 'user',
-                                        'item' => $userItem,
-                                        'updated_at' => $userItem->updated_at
-                                    ]);
-                                }
-                            }
-                            
-                            // Ordenar por data de atualização (mais recente primeiro)
-                            $allActivities = $allActivities->sortByDesc('updated_at')->take(10);
-                        @endphp
-                        
-                        @if($allActivities->count() > 0)
-                            @foreach($allActivities as $activity)
-                                @if($activity['type'] == 'game')
-                                    @php $game = $activity['item']; @endphp
-                                    <div class="list-group-item border-0 py-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-primary bg-opacity-10 p-2 rounded-3 me-3">
-                                                <i class="bi bi-joystick text-primary"></i>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h6 class="mb-0">Jogo {{ $game->trashed() ? 'desativado' : ($game->created_at->diffInHours() < 24 ? 'adicionado' : 'atualizado') }}</h6>
-                                                <p class="text-muted mb-0 small">{{ $game->title }}</p>
-                                            </div>
-                                            <div class="text-muted small">{{ $game->updated_at->diffForHumans(now(), true) }} atrás</div>
-                                        </div>
-                                    </div>
-                                @elseif($activity['type'] == 'news')
-                                    @php $news = $activity['item']; @endphp
-                                    <div class="list-group-item border-0 py-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-info bg-opacity-10 p-2 rounded-3 me-3">
-                                                <i class="bi bi-newspaper text-info"></i>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h6 class="mb-0">Notícia {{ $news->created_at->diffInHours() < 24 ? 'publicada' : 'atualizada' }}</h6>
-                                                <p class="text-muted mb-0 small">{{ $news->title }}</p>
-                                            </div>
-                                            <div class="text-muted small">{{ $news->updated_at->diffForHumans(now(), true) }} atrás</div>
-                                        </div>
-                                    </div>
-                                @elseif($activity['type'] == 'user')
-                                    @php $userItem = $activity['item']; @endphp
-                                    <div class="list-group-item border-0 py-3">
-                                        <div class="d-flex align-items-center">
-                                            <div class="bg-success bg-opacity-10 p-2 rounded-3 me-3">
-                                                <i class="bi bi-person-plus text-success"></i>
-                                            </div>
-                                            <div class="flex-grow-1">
-                                                <h6 class="mb-0">Usuário {{ $userItem->created_at->diffInHours() < 24 ? 'registrado' : 'atualizado' }}</h6>
-                                                <p class="text-muted mb-0 small">{{ $userItem->name }} ({{ $userItem->email }})</p>
-                                            </div>
-                                            <div class="text-muted small">{{ $userItem->updated_at->diffForHumans(now(), true) }} atrás</div>
-                                        </div>
-                                    </div>
+                        @foreach($upcomingEvents as $event)
+                        <div class="list-group-item border-0 p-4">
+                            <div class="d-flex align-items-start">
+                                @if($event->color)
+                                <div class="me-3" style="width: 8px; height: 40px; background-color: {{ $event->color }}; border-radius: 4px;"></div>
+                                @else
+                                <div class="me-3" style="width: 8px; height: 40px; background-color: #6c757d; border-radius: 4px;"></div>
                                 @endif
-                            @endforeach
-                        @else
-                            <div class="list-group-item border-0 py-3 text-center text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                Nenhuma atividade recente
+                                <div class="flex-grow-1">
+                                    <div class="d-flex w-100 justify-content-between align-items-start mb-2">
+                                        <h6 class="mb-0 fw-bold">{{ $event->title }}</h6>
+                                        <span class="badge bg-{{ $event->visibility === 'public' ? 'success' : 'secondary' }}">
+                                            {{ $event->visibility === 'public' ? 'Público' : 'Privado' }}
+                                        </span>
+                                    </div>
+                                    <p class="mb-2 text-muted small">{{ Str::limit($event->description, 100) }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            <i class="bi bi-clock me-1"></i>
+                                            {{ \Carbon\Carbon::parse($event->start_date)->format('d/m/Y H:i') }}
+                                        </small>
+                                        <small class="text-muted">
+                                            <i class="bi bi-person me-1"></i>
+                                            Criado por: {{ $event->user->name }}
+                                        </small>
+                                    </div>
+                                </div>
                             </div>
-                        @endif
+                        </div>
+                        @endforeach
                     </div>
                 </div>
+            </div>
+            @elseif($user->is_admin || $user->hasPermission('view_calendar'))
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header py-3 border-bottom">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-calendar-event me-2 text-purple"></i>Próximos Eventos
+                    </h5>
+                </div>
+            </div>
+            @endif
+            
+            <!-- Quick Actions -->
+            <div class="row">
+                @if($user->is_admin || $user->hasPermission('create_games'))
+                <div class="col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 card-hover">
+                        <div class="card-body text-center p-4">
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                <i class="bi bi-joystick fs-2 text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Gerenciar Jogos</h5>
+                            <p class="card-text text-muted">Adicione, edite ou remova jogos do catálogo.</p>
+                            <a href="{{ route('admin.games.index') }}" class="btn btn-primary stretched-link">
+                                <i class="bi bi-gear me-1"></i>Gerenciar Jogos
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @endif
+                
+                @if($user->is_admin || $user->hasPermission('create_news'))
+                <div class="col-md-6 mb-4">
+                    <div class="card border-0 shadow-sm h-100 card-hover">
+                        <div class="card-body text-center p-4">
+                            <div class="bg-info bg-opacity-10 p-3 rounded-circle d-inline-block mb-3">
+                                <i class="bi bi-newspaper fs-2 text-info"></i>
+                            </div>
+                            <h5 class="card-title">Gerenciar Notícias</h5>
+                            <p class="card-text text-muted">Crie e publique notícias para os usuários.</p>
+                            <a href="{{ route('admin.news.index') }}" class="btn btn-info text-white stretched-link">
+                                <i class="bi bi-gear me-1"></i>Gerenciar Notícias
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                @endif
             </div>
         </div>
         
@@ -244,9 +249,9 @@
         <div class="col-lg-4">
             @if($user->is_admin || $user->hasPermission('edit_help'))
             <!-- Help Card with Highlight -->
-            <div class="card border-0 shadow-sm mb-4 bg-opacity-5 border-warning">
+            <div class="card border-0 shadow-sm mb-4 bg-warning bg-opacity-5 border-warning">
                 <div class="card-header bg-transparent border-warning py-3">
-                    <h5 class="mb-0 fw-bold text-warning">
+                    <h5 class="mb-0 fw-bold">
                         <i class="bi bi-question-circle me-2"></i>Conteúdo de Ajuda
                     </h5>
                 </div>
@@ -275,6 +280,13 @@
                         </div>
                         <span class="fw-bold">{{ $activeGamesCount }}</span>
                     </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-archive me-2 text-secondary"></i>
+                            <span>Jogos excluídos</span>
+                        </div>
+                        <span class="fw-bold">{{ $deletedGamesCount }}</span>
+                    </div>
                     @endif
                     
                     @if($user->is_admin || $user->hasPermission('edit_news') || $user->hasPermission('create_news'))
@@ -288,12 +300,19 @@
                     @endif
                     
                     @if($user->is_admin)
-                    <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
                         <div class="d-flex align-items-center">
                             <i class="bi bi-shield-check me-2 text-success"></i>
                             <span>Administradores</span>
                         </div>
                         <span class="fw-bold">{{ $adminUsersCount }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-x me-2 text-danger"></i>
+                            <span>Usuários bloqueados</span>
+                        </div>
+                        <span class="fw-bold">{{ $blockedUsersCount }}</span>
                     </div>
                     @endif
                 </div>
@@ -357,9 +376,15 @@
 
 .list-group-item {
     transition: all 0.2s ease;
+    border-bottom: 1px solid #eee;
+}
+
+.list-group-item:last-child {
+    border-bottom: none;
 }
 
 .list-group-item:hover {
+    background-color: #f8f9fa;
 }
 
 .badge {
@@ -369,6 +394,37 @@
 
 .bg-opacity-10 {
     --bs-bg-opacity: 0.1;
+}
+
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+
+.text-purple {
+    color: #6f42c1 !important;
+}
+
+.btn-purple {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
+}
+
+.btn-purple:hover {
+    background-color: #5a359c;
+    border-color: #5a359c;
+    color: white;
+}
+
+.btn-outline-purple {
+    color: #6f42c1;
+    border-color: #6f42c1;
+}
+
+.btn-outline-purple:hover {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
 }
 </style>
 

@@ -3,38 +3,6 @@
 @section('title', 'Gerenciamento de Usuários')
 
 @section('content')
-<div class="container-fluid py-4">
-    <!-- Header Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h2 class="mb-0"><i class="bi bi-people me-2"></i> Gerenciamento de Usuários</h2>
-                    <p class="text-muted mb-0">Administre os usuários do sistema</p>
-                </div>
-                <div class="d-flex gap-2">
-                    <a href="{{ route('admin.users.create') }}" class="btn btn-pipa-red">
-                        <i class="bi bi-plus-circle me-1"></i> Novo Usuário
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Alertas -->
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="bi bi-exclamation-triangle me-2"></i> {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
-    @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            <i class="bi bi-check-circle me-2"></i> {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
 
     <!-- Stats Cards -->
     <div class="row mb-4">
@@ -176,7 +144,7 @@
                                     @php
                                         $isBolsista = !empty($user->permissions) && $user->permissions !== '[]' && $user->permissions !== 'null';
                                     @endphp
-                                    <tr class="{{ $user->is_blocked ? 'table-warning' : '' }} {{ $isBolsista ? '' : '' }}">
+                                    <tr class="{{ $user->is_blocked ?  : '' }} {{ $isBolsista ? '' : '' }}">
                                         <td class="ps-4">
                                             <div class="d-flex align-items-center">
                                                 <div>

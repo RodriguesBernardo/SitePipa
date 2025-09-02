@@ -3,11 +3,10 @@
 @section('title', 'Logs de Atividade')
 @section('content')
 <div class="container-fluid">
-    <h1>Logs de Atividade</h1>
     
     <!-- Filtros -->
     <div class="card mb-4">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header">
             <h5 class="mb-0"><i class="fas fa-filter"></i> Filtros</h5>
         </div>
         <div class="card-body">
@@ -33,7 +32,6 @@
                             <option value="delete" {{ request('action') == 'delete' ? 'selected' : '' }}>Exclusão</option>
                             <option value="restore" {{ request('action') == 'restore' ? 'selected' : '' }}>Restauração</option>
                             <option value="download" {{ request('action') == 'download' ? 'selected' : '' }}>Download</option>
-                            <option value="rate" {{ request('action') == 'rate' ? 'selected' : '' }}>Avaliação</option>
                         </select>
                     </div>
                     <div class="col-md-3">
