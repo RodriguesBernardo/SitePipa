@@ -32,10 +32,6 @@
                     @if($user->is_admin || $user->hasPermission('edit_help'))
                     <li><a class="dropdown-item" href="{{ route('admin.help.edit') }}"><i class="bi bi-pencil me-2"></i>Editar Ajuda</a></li>
                     @endif
-                    
-                    @if($user->is_admin || $user->hasPermission('create_calendar_events'))
-                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#eventModal"><i class="bi bi-calendar-plus me-2"></i>Novo Evento</a></li>
-                    @endif
                 </ul>
             </div>
         </div>
