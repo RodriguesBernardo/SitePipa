@@ -363,8 +363,8 @@
     }
     
     [data-bs-theme="dark"] .fc-event.no-color {
-        background-color: #2b2b2b;
-        border-color: #444;
+        background-color: #3a3a3a; /* Alterado para um cinza mais claro */
+        border-color: #555;
         color: #f8f9fa !important;
     }
     
@@ -591,10 +591,27 @@
         $('#color').val('');
         $('#eventModal .modal-header').css('border-bottom', '');
         
-        // Formatar data para o input datetime-local
-        const startDate = new Date(dateStr);
-        const endDate = new Date(dateStr);
-        endDate.setHours(23, 59, 0);
+        // Obter data/hora atual
+        const now = new Date();
+        
+        // Definir data/hora de início como agora
+        const startDate = new Date(now);
+        
+        // Definir data/hora de fim como uma hora depois
+        const endDate = new Date(now);
+        endDate.setHours(endDate.getHours() + 1);
+        
+        // Se foi clicado em uma data específica no calendário, usar essa data
+        if (dateStr) {
+            const clickedDate = new Date(dateStr);
+            startDate.setFullYear(clickedDate.getFullYear());
+            startDate.setMonth(clickedDate.getMonth());
+            startDate.setDate(clickedDate.getDate());
+            
+            endDate.setFullYear(clickedDate.getFullYear());
+            endDate.setMonth(clickedDate.getMonth());
+            endDate.setDate(clickedDate.getDate());
+        }
         
         $('#start_date').val(formatDateForInput(startDate));
         $('#end_date').val(formatDateForInput(endDate));

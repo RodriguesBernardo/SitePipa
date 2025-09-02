@@ -117,7 +117,7 @@
                         </a>
                         <div class="text-end">
                             <span class="badge bg-success bg-opacity-10 text-success">{{ $adminUsersCount }} administradores</span>
-                            <span class="badge bg-warning bg-opacity-10-warning ms-1">{{ $blockedUsersCount }} bloqueados</span>
+                            <span class="badge bg-opacity-10-warning ms-1">{{ $blockedUsersCount }} bloqueados</span>
                         </div>
                     </div>
                 </div>
@@ -245,7 +245,7 @@
         <div class="col-lg-4">
             @if($user->is_admin || $user->hasPermission('edit_help'))
             <!-- Help Card with Highlight -->
-            <div class="card border-0 shadow-sm mb-4 bg-warning bg-opacity-5 border-warning">
+            <div class="card border-0 shadow-sm mb-4 bg-opacity-5 border-warning">
                 <div class="card-header bg-transparent border-warning py-3">
                     <h5 class="mb-0 fw-bold">
                         <i class="bi bi-question-circle me-2"></i>Conteúdo de Ajuda
@@ -380,7 +380,7 @@
 }
 
 .list-group-item:hover {
-    background-color: #f8f9fa;
+  
 }
 
 .badge {

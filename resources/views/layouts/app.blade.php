@@ -17,7 +17,6 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    
     <!-- Custom CSS -->
     <style>
         :root {
@@ -428,6 +427,18 @@
         .fade-in {
             animation: fadeIn 0.3s ease-in-out;
         }
+        
+        /* Estilos para o TinyMCE */
+        .tox-tinymce {
+            border-radius: 8px !important;
+            margin-bottom: 1.5rem;
+            transition: var(--transition-base);
+        }
+        
+        /* Ajuste para modo escuro */
+        [data-bs-theme="dark"] .tox-tinymce {
+            border: 1px solid #555 !important;
+        }
     </style>
     
     @stack('styles')
@@ -698,6 +709,9 @@
                 
                 // Save preference
                 localStorage.setItem('darkMode', !isDark);
+                
+                // Atualizar o tema do TinyMCE
+                updateTinyMCETheme();
             });
             
             // Check theme preference
@@ -722,6 +736,80 @@
                     $('body').removeClass('sidebar-mobile-show');
                 }
             });
+            
+            // Função para atualizar o tema do TinyMCE
+            function updateTinyMCETheme() {
+                const isDarkMode = $('html').attr('data-bs-theme') === 'dark';
+                
+                // Configurações para modo escuro
+                const darkSettings = {
+                    skin: 'oxide-dark',
+                    content_css: 'dark'
+                };
+                
+                // Configurações para modo claro
+                const lightSettings = {
+                    skin: 'oxide',
+                    content_css: 'default'
+                };
+                
+                // Aplicar configurações baseadas no tema
+                const settings = isDarkMode ? darkSettings : lightSettings;
+                
+                // Atualizar todas as instâncias do TinyMCE
+                if (typeof tinymce !== 'undefined') {
+                    tinymce.editors.forEach(function(editor) {
+                        editor.destroy();
+                    });
+                    
+                    // Inicializar novamente com as novas configurações
+                    initTinyMCE(settings);
+                }
+            }
+            
+            // Inicializar o TinyMCE com as configurações corretas
+            function initTinyMCE(settings) {
+                // Configuração base do TinyMCE
+                const baseConfig = {
+                    selector: 'textarea.rich-editor',
+                    plugins: 'advlist autolink lists link image charmap print preview anchor searchreplace visualblocks code fullscreen insertdatetime media table paste code help wordcount',
+                    toolbar: 'undo redo | formatselect | bold italic backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help',
+                    height: 300,
+                    menubar: false,
+                    branding: false,
+                    // Adicione outras configurações padrão aqui
+                };
+                
+                // Mesclar configurações
+                const finalConfig = {...baseConfig, ...settings};
+                
+                // Inicializar o editor
+                tinymce.init(finalConfig);
+            }
+            
+            // Inicializar o TinyMCE quando a página carregar
+            const isDarkMode = $('html').attr('data-bs-theme') === 'dark';
+            const initialSettings = isDarkMode ? {
+                skin: 'oxide-dark',
+                content_css: 'dark'
+            } : {
+                skin: 'oxide',
+                content_css: 'default'
+            };
+            
+            initTinyMCE(initialSettings);
+            
+            // Observar mudanças no tema do sistema (se aplicável)
+            if (window.matchMedia) {
+                const colorSchemeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+                colorSchemeQuery.addEventListener('change', function(e) {
+                    if (!localStorage.getItem('darkMode')) {
+                        $('html').attr('data-bs-theme', e.matches ? 'dark' : 'light');
+                        $('.theme-toggle i').toggleClass('fa-moon fa-sun', e.matches);
+                        updateTinyMCETheme();
+                    }
+                });
+            }
         });
     </script>
     

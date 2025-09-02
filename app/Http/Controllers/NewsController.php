@@ -48,7 +48,7 @@ class NewsController extends Controller
     // Método para listagem administrativa
     public function adminIndex()
     {
-        if (!auth()->user()->is_admin && !auth()->user()->hasPermission('edit_news')) {
+        if (!auth()->user()->is_admin && !auth()->user()->hasPermission('edit_news') && !auth()->user()->hasPermission('create_news')) {
             abort(403, 'Você não tem permissão para visualizar notícias.');
         }
         
