@@ -129,16 +129,28 @@ class GameController extends Controller
         
         $request->validate([
             'title' => 'required|string|max:255',
-            'short_description' => 'required|string|max:255',
-            'long_description' => 'required|string',
-            'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'file' => 'required|file|mimes:zip,rar',
+            'short_description' => 'required|string|max:500', // Aumentado para 500 caracteres
+            'long_description' => 'required|string|max:10000', // Adicionado limite de 10.000 caracteres
+            'cover_image' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // Aumentado para 5MB
+            'file' => 'required|file|mimes:zip,rar|max:102400', // Aumentado para 100MB
             'is_featured' => 'nullable|boolean',
             'tags' => 'array',
             'tags.*' => 'exists:game_tags,id',
+        ], [
+            'title.required' => 'O título é obrigatório',
+            'title.max' => 'O título não pode ter mais de 255 caracteres',
+            'short_description.required' => 'A descrição curta é obrigatória',
+            'short_description.max' => 'A descrição curta não pode ter mais de 500 caracteres',
+            'long_description.required' => 'As regras são obrigatórias',
+            'long_description.max' => 'As regras não podem ter mais de 10.000 caracteres',
+            'cover_image.required' => 'A imagem de capa é obrigatória',
+            'cover_image.image' => 'O arquivo deve ser uma imagem',
+            'cover_image.mimes' => 'A imagem deve ser JPEG, PNG, JPG ou GIF',
+            'cover_image.max' => 'A imagem não pode ter mais de 5MB',
+            'file.required' => 'O arquivo do jogo é obrigatório',
+            'file.mimes' => 'O arquivo deve ser ZIP ou RAR',
+            'file.max' => 'O arquivo não pode ter mais de 100MB',
         ]);
-
-        $validated['published'] = $request->status === 'published' || $request->status === 'scheduled';
 
         try {
             // Upload cover image
@@ -171,7 +183,8 @@ class GameController extends Controller
                 
         } catch (\Exception $e) {
             \Log::error('Erro ao criar jogo', ['error' => $e->getMessage()]);
-            return back()->with('error', 'Erro ao criar jogo: ' . $e->getMessage());
+            return back()->with('error', 'Erro ao criar jogo: ' . $e->getMessage())
+                        ->withInput(); // Mantém os dados do formulário
         }
     }
 

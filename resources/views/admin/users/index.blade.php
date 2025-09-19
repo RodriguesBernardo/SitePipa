@@ -123,6 +123,9 @@
                             <span class="text-muted me-3">
                                 Mostrando {{ $users->count() }} de {{ $users->total() }} usuários
                             </span>
+                            <a href="{{ route('admin.users.create') }}" class="btn btn-pipa-red">
+                                <i class="bi bi-plis-circle me-1"> Adicionar Usuário</i>
+                            </a>
                         </div>
                     </div>
                 </div>

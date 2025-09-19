@@ -6,7 +6,35 @@
 <div class="container">
     <h2 class="mb-4">Adicionar Novo Jogo</h2>
     
-    <form action="{{ route('admin.games.store') }}" method="POST" enctype="multipart/form-data">
+    <!-- Exibir mensagens de erro gerais -->
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <h5 class="alert-heading">Erros encontrados:</h5>
+            <ul class="mb-0">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    <!-- Exibir mensagens de sucesso/erro do session -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    @endif
+    
+    <form action="{{ route('admin.games.store') }}" method="POST" enctype="multipart/form-data" id="gameForm">
         @csrf
         
         <div class="row">
@@ -15,17 +43,41 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label for="title" class="form-label">Título</label>
-                            <input type="text" class="form-control" id="title" name="title" required>
+                            <input type="text" class="form-control @error('title') is-invalid @enderror" 
+                                   id="title" name="title" value="{{ old('title') }}" required
+                                   maxlength="255">
+                            @error('title')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                <span id="titleCounter">0</span>/255 caracteres
+                            </small>
                         </div>
                         
                         <div class="mb-3">
                             <label for="short_description" class="form-label">Sobre o jogo</label>
-                            <textarea class="form-control editor" id="short_description" name="short_description" rows="3" required></textarea>
+                            <textarea class="form-control editor @error('short_description') is-invalid @enderror" 
+                                      id="short_description" name="short_description" rows="3" required
+                                      maxlength="500">{{ old('short_description') }}</textarea>
+                            @error('short_description')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                <span id="shortDescCounter">0</span>/500 caracteres
+                            </small>
                         </div>
                         
                         <div class="mb-3">
                             <label for="long_description" class="form-label">Regras</label>
-                            <textarea class="form-control editor" id="long_description" name="long_description" rows="8" required></textarea>
+                            <textarea class="form-control editor @error('long_description') is-invalid @enderror" 
+                                      id="long_description" name="long_description" rows="8" required
+                                      maxlength="10000">{{ old('long_description') }}</textarea>
+                            @error('long_description')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                <span id="longDescCounter">0</span>/10000 caracteres
+                            </small>
                         </div>
                     </div>
                 </div>
@@ -36,16 +88,34 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label for="cover_image" class="form-label">Imagem de Capa</label>
-                            <input type="file" class="form-control" id="cover_image" name="cover_image" accept="image/*" required>
+                            <input type="file" class="form-control @error('cover_image') is-invalid @enderror" 
+                                   id="cover_image" name="cover_image" accept="image/*" required>
+                            @error('cover_image')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                Formatos: JPEG, PNG, JPG, GIF. Máx: 5MB
+                            </small>
+                            <div id="coverPreview" class="mt-2 d-none">
+                                <img src="" class="img-thumbnail" style="max-height: 150px;">
+                            </div>
                         </div>
                         
                         <div class="mb-3">
                             <label for="file" class="form-label">Arquivo do Jogo (ZIP/RAR)</label>
-                            <input type="file" class="form-control" id="file" name="file" required>
+                            <input type="file" class="form-control @error('file') is-invalid @enderror" 
+                                   id="file" name="file" required>
+                            @error('file')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">
+                                Máximo: 100MB
+                            </small>
                         </div>
                         
                         <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="is_featured" name="is_featured" value="1" {{ old('is_featured', $game->is_featured ?? false) ? 'checked' : '' }}>
+                            <input type="checkbox" class="form-check-input" id="is_featured" 
+                                   name="is_featured" value="1" {{ old('is_featured') ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_featured">Destaque</label>
                         </div>
                     </div>
@@ -54,9 +124,14 @@
                 <div class="card mb-4">
                     <div class="card-body">
                         <h5 class="card-title">Tags</h5>
+                        @error('tags')
+                            <div class="alert alert-danger">{{ $message }}</div>
+                        @enderror
                         @foreach($tags as $tag)
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="tags[]" value="{{ $tag->id }}" id="tag-{{ $tag->id }}">
+                                <input class="form-check-input" type="checkbox" name="tags[]" 
+                                       value="{{ $tag->id }}" id="tag-{{ $tag->id }}"
+                                       {{ in_array($tag->id, old('tags', [])) ? 'checked' : '' }}>
                                 <label class="form-check-label" for="tag-{{ $tag->id }}">
                                     {{ $tag->name }}
                                 </label>
@@ -65,7 +140,10 @@
                     </div>
                 </div>
                 
-                <button type="submit" class="btn btn-primary w-100">Salvar Jogo</button>
+                <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="spinner"></span>
+                    Salvar Jogo
+                </button>
             </div>
         </div>
     </form>
@@ -82,7 +160,26 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Configuração do TinyMCE (idêntica ao template de ajuda)
+    // Contadores de caracteres
+    function updateCharacterCounters() {
+        $('#titleCounter').text($('#title').val().length);
+        $('#shortDescCounter').text($('#short_description').val().length);
+        $('#longDescCounter').text($('#long_description').val().length);
+    }
+
+    // Preview da imagem
+    $('#cover_image').change(function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                $('#coverPreview').removeClass('d-none').find('img').attr('src', e.target.result);
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Configuração do TinyMCE
     tinymce.init({
         selector: '.editor',
         plugins: 'advlist autolink lists link image charmap preview anchor pagebreak',
@@ -98,56 +195,75 @@ document.addEventListener('DOMContentLoaded', function() {
         force_br_newlines: false,
         force_p_newlines: true,
         content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 14px; line-height: 1.6; color: #212529; }',
-        // Remova a configuração de API key que estava causando o problema
         setup: function(editor) {
-            // Converte conteúdo existente ao inicializar
             editor.on('init', function() {
                 const content = editor.getContent();
                 if (content && !content.includes('<')) {
                     const formattedContent = formatPlainTextToHtml(content);
                     editor.setContent(formattedContent);
                 }
+                updateCharacterCounters();
             });
             
-            // Garante que o conteúdo seja salvo no textarea
+            editor.on('keyup', function() {
+                updateCharacterCounters();
+            });
+            
             editor.on('change', function() {
                 editor.save();
+                updateCharacterCounters();
             });
         }
     });
 
-    // Função para converter texto simples para HTML (idêntica)
+    // Função para converter texto simples para HTML
     function formatPlainTextToHtml(text) {
-        // Converte quebras de linha para parágrafos
         let html = text.replace(/\r\n|\r|\n/g, '</p><p>');
         html = '<p>' + html + '</p>';
-        
-        // Remove parágrafos vazios
         html = html.replace(/<p><\/p>/g, '');
-        
-        // Converte listas com marcadores
         html = html.replace(/(^|\n)\*\s(.*?)(?=\n|$)/g, '$1<li>$2</li>');
         html = html.replace(/(^|\n)-\s(.*?)(?=\n|$)/g, '$1<li>$2</li>');
-        
-        // Envolve listas em tags ul
         html = html.replace(/(<li>.*?<\/li>)+/g, function(match) {
             return '<ul>' + match + '</ul>';
         });
-        
         return html;
     }
 
-    // Ao enviar o formulário
-    document.querySelector('form').addEventListener('submit', function(e) {
-        // Salva o conteúdo de todos os editores
+    // Atualizar contadores ao digitar nos campos normais
+    $('#title, #short_description, #long_description').on('input', updateCharacterCounters);
+
+    // Inicializar contadores
+    updateCharacterCounters();
+
+    // Prevenir envio duplo do formulário
+    $('#gameForm').on('submit', function() {
+        $('#submitBtn').prop('disabled', true);
+        $('#spinner').removeClass('d-none');
         tinymce.triggerSave();
         return true;
+    });
+
+    // Validar tamanho do arquivo antes do envio
+    $('#gameForm').on('submit', function(e) {
+        const coverFile = $('#cover_image')[0].files[0];
+        const gameFile = $('#file')[0].files[0];
+        
+        if (coverFile && coverFile.size > 5 * 1024 * 1024) {
+            e.preventDefault();
+            alert('A imagem de capa não pode ter mais de 5MB');
+            return false;
+        }
+        
+        if (gameFile && gameFile.size > 100 * 1024 * 1024) {
+            e.preventDefault();
+            alert('O arquivo do jogo não pode ter mais de 100MB');
+            return false;
+        }
     });
 });
 </script>
 
 <style>
-/* Estilos idênticos ao template de ajuda */
 .tox-tinymce {
     border-radius: 0.375rem !important;
     border: 1px solid #dee2e6 !important;
@@ -176,6 +292,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .tox .tox-edit-area__iframe {
     background-color: white !important;
+}
+
+.invalid-feedback {
+    display: block;
 }
 
 @media (max-width: 768px) {

@@ -584,8 +584,6 @@
     function createEvent(dateStr) {
         $('#eventForm')[0].reset();
         $('#eventId').val('');
-        
-        // Selecionar a opção sem cor por padrão
         $('.color-option').removeClass('selected');
         $('.color-option[data-color=""]').addClass('selected');
         $('#color').val('');
@@ -593,24 +591,23 @@
         
         // Obter data/hora atual
         const now = new Date();
-        
-        // Definir data/hora de início como agora
         const startDate = new Date(now);
-        
-        // Definir data/hora de fim como uma hora depois
+
         const endDate = new Date(now);
         endDate.setHours(endDate.getHours() + 1);
         
-        // Se foi clicado em uma data específica no calendário, usar essa data
         if (dateStr) {
-            const clickedDate = new Date(dateStr);
+            const clickedDate = new Date(dateStr + 'T12:00:00');
+            
             startDate.setFullYear(clickedDate.getFullYear());
             startDate.setMonth(clickedDate.getMonth());
             startDate.setDate(clickedDate.getDate());
+            startDate.setHours(9, 0, 0, 0); 
             
             endDate.setFullYear(clickedDate.getFullYear());
             endDate.setMonth(clickedDate.getMonth());
             endDate.setDate(clickedDate.getDate());
+            endDate.setHours(10, 0, 0, 0); 
         }
         
         $('#start_date').val(formatDateForInput(startDate));
@@ -622,9 +619,13 @@
     }
 
     function formatDateForInput(date) {
-        // Ajustar para o fuso horário local
-        const localDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
-        return localDate.toISOString().slice(0, 16);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     function editEvent(eventId) {
@@ -639,24 +640,20 @@
                 $('#eventId').val(data.event.id);
                 $('#title').val(data.event.title);
                 $('#description').val(data.event.description || '');
-                
-                // Format dates correctly for datetime-local input
+            
                 const startDate = new Date(data.event.start_date);
                 const endDate = new Date(data.event.end_date);
                 
-                // Usar a função corrigida para formatar as datas
                 $('#start_date').val(formatDateForInput(startDate));
                 $('#end_date').val(formatDateForInput(endDate));
                 
                 // Definir cor do evento
                 $('.color-option').removeClass('selected');
                 if (data.event.color) {
-                    // Verificar se a cor é uma das opções padrão
                     const matchingOption = $(`.color-option[data-color="${data.event.color}"]`);
                     if (matchingOption.length > 0) {
                         matchingOption.addClass('selected');
                     } else {
-                        // Se for uma cor personalizada, definir no seletor de cor personalizada
                         $('#customColor').val(data.event.color);
                     }
                     $('#color').val(data.event.color);
@@ -707,9 +704,6 @@
         if (!data.participants) {
             data.participants = [];
         }
-
-        // CORREÇÃO: Garantir que o campo color seja enviado mesmo quando vazio
-        // O valor deve ser uma string vazia se não houver cor selecionada
         if (typeof data.color === 'undefined') {
             data.color = '';
         }

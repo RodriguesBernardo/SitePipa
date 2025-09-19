@@ -173,7 +173,7 @@
                                         </a>
                                         <div class="card-body">
                                             <h5 class="card-title">{{ Str::limit($relatedGame->title, 30) }}</h5>
-                                            <p class="card-text text-muted small">{{ Str::limit($relatedGame->short_description, 60) }}</p>
+                                            <p class="card-text text-muted small">{!! Str::limit(strip_tags($relatedGame->short_description), 60) !!}</p>
                                         </div>
                                         <div class="card-footer bg-transparent">
                                             <a href="{{ route('games.show', $relatedGame) }}" class="btn btn-sm btn-pipa-red">Ver detalhes</a>
