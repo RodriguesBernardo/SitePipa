@@ -1,0 +1,6 @@
+pillow
+opencv-python
+pynput
+scapy
+requests
+numpy
