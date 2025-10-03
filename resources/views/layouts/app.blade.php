@@ -612,6 +612,14 @@
                         </a>
                     </li>
                     @endif
+                    @if(auth()->user()->is_admin)
+                    <li class="nav-item">
+                        <a href="{{ route('admin.notebooks.index') }}" class="nav-link {{ Request::is('admin/notebooks*') ? 'active' : '' }}">
+                            <i class="fas fa-laptop"></i>
+                            <span class="nav-link-text">Monitorar Notebooks</span>
+                        </a>
+                    </li>
+                    @endif
                 @endif
             @endauth
         </ul>

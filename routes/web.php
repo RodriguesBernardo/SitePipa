@@ -9,20 +9,33 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\AdminActivityLogController; 
-use App\Http\Controllers\CalendarController; // Adicione esta linha
+use App\Http\Controllers\CalendarController;
+use App\Http\Controllers\Admin\NotebookController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\EmailVerificationController;
 
-// Rotas de verificação de email
-Route::get('/email/verify', [EmailVerificationController::class, 'showVerificationForm'])
-    ->name('verification.verify.form');
+// ==================== ROTAS API PÚBLICAS ====================
+Route::prefix('api')->group(function () {
+    // CSRF Token para API
+    Route::get('/csrf-token', function () {
+        return response()->json(['csrf_token' => csrf_token()]);
+    });
+    
+    // Teste de API
+    Route::get('/test', function () {
+        return response()->json(['message' => 'API funcionando!']);
+    });
+    
+    // Rotas do Notebook (para comunicação com script Python)
+    Route::prefix('notebook')->group(function () {
+        Route::post('/login', [NotebookController::class, 'apiLogin']);
+        Route::post('/heartbeat', [NotebookController::class, 'apiHeartbeat']);
+        Route::get('/{notebookId}/comandos', [NotebookController::class, 'apiComandos']);
+        Route::post('/midia', [NotebookController::class, 'apiMidia']);
+    });
+});
 
-Route::post('/email/verify', [EmailVerificationController::class, 'verify'])
-    ->name('verification.verify');
-
-Route::get('/email/verify/resend', [EmailVerificationController::class, 'resend'])
-    ->name('verification.resend');
-
+// ==================== ROTAS PÚBLICAS ====================
 // Página inicial
 Route::get('/', [HomeController::class, 'index'])->name('home');
 
@@ -38,7 +51,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/resend-verification', [RegisterController::class, 'resendVerificationCode'])->name('verification.resend');
 });
 
-// Rotas públicas
+// Rotas públicas de conteúdo
 Route::resource('games', GameController::class)->only(['index', 'show']);
 Route::get('/games/{game}/download', [GameController::class, 'download'])->name('games.download');
 Route::post('/games/{game}/rate', [GameController::class, 'rate'])->name('games.rate');
@@ -46,14 +59,15 @@ Route::get('/games/{game}/pdf', [GameController::class, 'generatePdf'])->name('g
 Route::resource('news', NewsController::class)->only(['index', 'show']);
 Route::get('/help', [HelpController::class, 'index'])->name('help.index');
 
-// Rotas de perfil
+// ==================== ROTAS AUTENTICADAS (USUÁRIOS COMUNS) ====================
 Route::middleware(['auth', \App\Http\Middleware\CheckBlockedUser::class])->group(function () {
+    // Perfil do usuário
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-// Área administrativa (requer autenticação, verificação de email E admin)
+// ==================== ÁREA ADMINISTRATIVA ====================
 Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\AdminMiddleware::class])->name('admin.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
@@ -122,7 +136,7 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         Route::get('/{log}', [AdminActivityLogController::class, 'show'])->name('show');
     });
     
-    // Rotas do Calendário - ADICIONE ESTE BLOCO
+    // Calendário
     Route::prefix('calendar')->name('calendar.')->group(function () {
         Route::get('/', [CalendarController::class, 'index'])->name('index');
         Route::get('/events', [CalendarController::class, 'getEvents'])->name('events');
@@ -131,14 +145,24 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         Route::delete('/events/{event}', [CalendarController::class, 'destroy'])->name('events.destroy');
         Route::get('/events/{event}', [CalendarController::class, 'show'])->name('events.show');
     });
+    
+    // ==================== MONITORAMENTO DE NOTEBOOKS ====================
+    Route::prefix('notebooks')->name('notebooks.')->group(function () {
+        Route::get('/', [NotebookController::class, 'index'])->name('index');
+        Route::post('/', [NotebookController::class, 'store'])->name('store'); // ← ADICIONAR ESTA ROTA
+        Route::get('/{id}', [NotebookController::class, 'show'])->name('show');
+        Route::post('/{id}/comando', [NotebookController::class, 'enviarComando'])->name('comando');
+        Route::get('/{id}/download/{tipo}', [NotebookController::class, 'downloadMidia'])->name('download'); // ← CORRIGIDO
+    });
 });
 
-// Rota dashboard padrão do Laravel (redireciona para home)
+// ==================== ROTAS DE AUTENTICAÇÃO PADRÃO ====================
+// Dashboard padrão (redireciona para home)
 Route::get('/dashboard', function () {
     return redirect()->route('home');
 })->middleware(['auth'])->name('dashboard');
 
-// Rotas de autenticação padrão do Laravel (mantenha para login/logout)
+// Login/Logout padrão do Laravel
 Route::middleware('guest')->group(function () {
     Route::get('login', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [\App\Http\Controllers\Auth\AuthenticatedSessionController::class, 'store']);

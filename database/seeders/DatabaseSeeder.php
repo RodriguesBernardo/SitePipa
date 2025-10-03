@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
 {
     public function run()
     {
+        // Criar usuário admin
         User::create([
             'name' => 'Desenvolvimento',
             'email' => 'dev@dev',
@@ -41,5 +42,8 @@ class DatabaseSeeder extends Seeder
                 'slug' => \Illuminate\Support\Str::slug($tag),
             ]);
         }
+
+        // Criar notebooks
+        // $this->call(NotebookSeeder::class);
     }
 }
