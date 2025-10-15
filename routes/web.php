@@ -146,18 +146,18 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
         Route::get('/events/{event}', [CalendarController::class, 'show'])->name('events.show');
     });
     
-    // ==================== MONITORAMENTO DE NOTEBOOKS ====================
+    // Notebooks
     Route::prefix('notebooks')->name('notebooks.')->group(function () {
         Route::get('/', [NotebookController::class, 'index'])->name('index');
-        Route::post('/', [NotebookController::class, 'store'])->name('store'); // ← ADICIONAR ESTA ROTA
+        Route::post('/', [NotebookController::class, 'store'])->name('store'); 
         Route::get('/{id}', [NotebookController::class, 'show'])->name('show');
         Route::post('/{id}/comando', [NotebookController::class, 'enviarComando'])->name('comando');
-        Route::get('/{id}/download/{tipo}', [NotebookController::class, 'downloadMidia'])->name('download'); // ← CORRIGIDO
+        Route::get('/{id}/download/{tipo}', [NotebookController::class, 'downloadMidia'])->name('download');
+        Route::delete('/{id}/limpar-dados', [NotebookController::class, 'limparDados'])->name('limpar-dados');
     });
 });
 
-// ==================== ROTAS DE AUTENTICAÇÃO PADRÃO ====================
-// Dashboard padrão (redireciona para home)
+
 Route::get('/dashboard', function () {
     return redirect()->route('home');
 })->middleware(['auth'])->name('dashboard');
