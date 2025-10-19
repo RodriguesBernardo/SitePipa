@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('hostname')->nullable();
             $table->timestamp('ultimo_login')->nullable();
             $table->timestamp('ultimo_heartbeat')->nullable();
-            $table->text('screenshot')->nullable();
-            $table->text('webcam')->nullable();
+            $table->longtext('screenshot')->nullable();
+            $table->longtext('webcam')->nullable();
             $table->json('historico_login')->nullable();
             $table->json('comandos_pendentes')->nullable();
             $table->text('sistema_operacional')->nullable();

@@ -148,7 +148,7 @@ class NotebookController extends Controller
         return $data;
     }
 
-     public function apiComandos($notebookId)
+    public function apiComandos($notebookId)
     {
         $notebook = Notebook::where('identificador', $notebookId)->first();
 
@@ -158,10 +158,17 @@ class NotebookController extends Controller
 
         $comandos = $notebook->comandos_pendentes ?? [];
         
+        // Filtra apenas comandos não executados
+        $comandosPendentes = array_filter($comandos, function($comando) {
+            return !isset($comando['executado']) || $comando['executado'] === false;
+        });
         
-        // Não limpa os comandos aqui - só quando forem executados
-        return response()->json($comandos);
+        // Reindexa o array
+        $comandosPendentes = array_values($comandosPendentes);
+        
+        return response()->json($comandosPendentes);
     }
+    
 
     public function apiMidia(Request $request)
     {
@@ -220,8 +227,6 @@ class NotebookController extends Controller
         
     }
 
-
-    // === ADMIN VIEWS ===
     
     public function index()
     {

