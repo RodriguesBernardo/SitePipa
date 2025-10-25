@@ -20,7 +20,7 @@
         <div class="col-12">
             <h1 class="fw-bold">{{ $news->title }}</h1>
             <p class="text-muted">
-                <i class="bi bi-calendar me-1"></i> Publicado em {{ $news->published_at->format('d/m/Y') }} 
+                <i class="bi bi-calendar me-1"></i> Publicado em {{ $news->published_at ? $news->published_at->format('d/m/Y') : 'Data não disponível' }} 
                 <i class="bi bi-person ms-3 me-1"></i> por {{ $news->user->name }}
             </p>
             

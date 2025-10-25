@@ -145,7 +145,7 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small class="text-muted">
                                             <i class="bi bi-calendar me-1"></i>
-                                            {{ $item->published_at ? $item->published_at->format('d/m/Y') : 'Data não disponível' }}
+                                            {{ $featuredItem->published_at ? $featuredItem->published_at->format('d/m/Y') : 'Data não disponível' }}
                                         </small>
                                         <a href="{{ route('news.show', $featuredItem) }}" class="btn btn-sm btn-pipa-red stretched-link">
                                             Ler mais <i class="bi bi-arrow-right ms-1"></i>
