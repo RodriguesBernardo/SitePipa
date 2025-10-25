@@ -644,7 +644,7 @@ class PIPAMonitor:
 
 if __name__ == "__main__":
     LARAVEL_URL = "http://localhost:8000"       # ajuste para a url do servidor 
-    NOTEBOOK_ID = "computador-teste"            # ajuste o nome para identificar a maquina que sera executada o script 
+    NOTEBOOK_ID = "Notebook Acer Nitro 5"            # ajuste o nome para identificar a maquina que sera executada o script 
     
     # verifica se as dependências estao funcionando
     print("[INICIO] Verificando dependências...")

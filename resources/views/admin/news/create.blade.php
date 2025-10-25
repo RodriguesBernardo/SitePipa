@@ -24,7 +24,7 @@
                         <label for="excerpt" class="form-label">Resumo (opcional)</label>
                         <textarea class="form-control editor @error('excerpt') is-invalid @enderror" 
                                   id="excerpt" name="excerpt" rows="2">{{ old('excerpt') }}</textarea>
-                        <small class="text-muted">Um breve resumo que aparecerá na listagem (máx. 300 caracteres)</small>
+                        <small class="text-muted">Um breve resumo que aparecerá na listagem (máx. 255 caracteres)</small>
                         @error('excerpt')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror

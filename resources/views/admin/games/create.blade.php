@@ -63,7 +63,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="form-text text-muted">
-                                <span id="shortDescCounter">0</span>/500 caracteres
+                                <span id="shortDescCounter">0</span>/255 caracteres
                             </small>
                         </div>
                         
@@ -76,7 +76,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="form-text text-muted">
-                                <span id="longDescCounter">0</span>/10000 caracteres
+                                <span id="longDescCounter">0</span>/5000 caracteres
                             </small>
                         </div>
                     </div>

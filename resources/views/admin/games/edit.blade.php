@@ -64,7 +64,7 @@
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                             <small class="form-text text-muted">
-                                <span id="shortDescCounter">{{ strlen(old('short_description', $game->short_description)) }}</span>/500 caracteres
+                                <span id="shortDescCounter">{{ strlen(old('short_description', $game->short_description)) }}</span>/255 caracteres
                             </small>
                         </div>
                         

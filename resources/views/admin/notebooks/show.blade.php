@@ -199,13 +199,6 @@
                                             </td>
                                         </tr>
                                         <tr>
-                                            <th class="text-muted">Último Login:</th>
-                                            <td>
-                                                <i class="fas fa-sign-in-alt me-1 text-warning"></i>
-                                                {{ $notebook->ultimo_login ? $notebook->ultimo_login->format('d/m/Y H:i') : 'Nunca' }}
-                                            </td>
-                                        </tr>
-                                        <tr>
                                             <th class="text-muted">Heartbeat:</th>
                                             <td>
                                                 <i class="fas fa-heart me-1 text-danger"></i>

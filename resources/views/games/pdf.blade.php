@@ -192,7 +192,7 @@
                     <div style="position: relative;">
                         @if($game->is_featured)
                             <div class="featured-badge">
-                                ★ Destaque
+                                Destaque
                             </div>
                         @endif
                         <img src="{{ storage_path('app/public/' . $game->cover_image) }}" class="game-cover" alt="Capa do jogo {{ $game->title }}">
