@@ -303,7 +303,7 @@
 <style>
 .hero-section {
     background: linear-gradient(135deg, #666666 0%, #333333 50%, #000000 100%);
-    color: white; /* Texto branco para contraste */
+    color: white; 
     overflow: hidden;
     border-radius: 0.75rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);

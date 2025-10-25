@@ -59,13 +59,6 @@ Route::get('/games/{game}/pdf', [GameController::class, 'generatePdf'])->name('g
 Route::resource('news', NewsController::class)->only(['index', 'show']);
 Route::get('/help', [HelpController::class, 'index'])->name('help.index');
 
-// ==================== ROTAS AUTENTICADAS (USUÁRIOS COMUNS) ====================
-Route::middleware(['auth', \App\Http\Middleware\CheckBlockedUser::class])->group(function () {
-    // Perfil do usuário
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-});
 
 // ==================== ÁREA ADMINISTRATIVA ====================
 Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\AdminMiddleware::class])->name('admin.')->group(function () {
@@ -106,8 +99,6 @@ Route::prefix('admin')->middleware(['auth', 'verified', \App\Http\Middleware\Adm
     Route::prefix('users')->name('users.')->group(function () {
         // Listagem
         Route::get('/', [UserController::class, 'index'])->name('index');
-                
-        // Criação
         Route::get('/create', [UserController::class, 'create'])->name('create');
         Route::post('/', [UserController::class, 'store'])->name('store');
         
