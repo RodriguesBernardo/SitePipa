@@ -145,7 +145,7 @@
                                     <div class="d-flex justify-content-between align-items-center">
                                         <small class="text-muted">
                                             <i class="bi bi-calendar me-1"></i>
-                                            {{ $featuredItem->published_at->format('d/m/Y') }}
+                                            {{ $item->published_at ? $item->published_at->format('d/m/Y') : 'Data não disponível' }}
                                         </small>
                                         <a href="{{ route('news.show', $featuredItem) }}" class="btn btn-sm btn-pipa-red stretched-link">
                                             Ler mais <i class="bi bi-arrow-right ms-1"></i>
@@ -218,7 +218,8 @@
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <small class="text-muted">
-                                            <i class="bi bi-calendar me-1"></i> {{ $item->published_at->format('d/m/Y') }}
+                                            <i class="bi bi-calendar me-1"></i>
+                                            {{ $item->published_at ? $item->published_at->format('d/m/Y') : 'Data não disponível' }}
                                         </small>
                                     </div>
                                     <a href="{{ route('news.show', $item) }}" class="btn btn-sm btn-pipa-red stretched-link">
@@ -257,7 +258,10 @@
                                                         <i class="bi bi-star-fill"></i> Destaque
                                                     </span>
                                                 @endif
-                                                <small class="text-muted"><i class="bi bi-calendar"></i> {{ $item->published_at->format('d/m/Y') }}</small>
+                                               <small class="text-muted">
+                                                    <i class="bi bi-calendar me-1"></i>
+                                                    {{ $item->published_at ? $item->published_at->format('d/m/Y') : 'Data não disponível' }}
+                                                </small>
                                             </div>
                                         </div>
                                         <a href="{{ route('news.show', $item) }}" class="btn btn-sm btn-pipa-red ms-3">
