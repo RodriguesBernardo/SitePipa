@@ -1,6 +1,7 @@
-pillow
+Pillow
 opencv-python
 pynput
 scapy
 requests
 numpy
+psutil
